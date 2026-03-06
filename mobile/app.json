@@ -26,7 +26,7 @@
       "versionCode": 1
     },
     "extra": {
-      "apiUrl": "https://your-api-url.com"
+      "apiUrl": "https://wholesalehub-production-25ae.up.railway.app"
     }
   }
 }
