@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
@@ -10,9 +10,11 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const prefill = route.params || {};
   const { user } = useAuth();
 
-  const [step, setStep] = useState(prefill.sellerId ? 'form' : 'search');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  // Steps: 'type' -> 'listing' -> 'form'
+  const [step, setStep] = useState(prefill.sellerId ? 'form' : 'type');
+  const [selectedType, setSelectedType] = useState('');
+  const [listings, setListings] = useState([]);
+  const [loadingListings, setLoadingListings] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
 
   const [sellerId, setSellerId] = useState(prefill.sellerId || '');
@@ -22,18 +24,22 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const [description, setDescription] = useState(prefill.description || '');
   const [loading, setLoading] = useState(false);
 
-  async function handleSearch(text) {
-    setSearchQuery(text);
-    if (text.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+  function pickType(type) {
+    setSelectedType(type);
+    setStep('listing');
+    loadListings(type);
+  }
+
+  async function loadListings(type) {
+    setLoadingListings(true);
     try {
-      const data = await api.searchListings({ keyword: text });
+      const data = await api.searchListings({ type });
       // Filter out own listings
-      setSearchResults((data.listings || []).filter(l => l.user_id !== user.id));
+      setListings((data.listings || []).filter(l => l.user_id !== user.id));
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoadingListings(false);
     }
   }
 
@@ -47,16 +53,19 @@ export default function InitiateEscrowScreen({ route, navigation }) {
     setStep('form');
   }
 
-  function clearSelection() {
-    setSelectedListing(null);
-    setSellerId('');
-    setSellerName('');
-    setListingId('');
-    setDescription('');
-    setAmount('');
-    setSearchQuery('');
-    setSearchResults([]);
-    setStep('search');
+  function goBack() {
+    if (step === 'listing') {
+      setStep('type');
+      setListings([]);
+    } else if (step === 'form' && !prefill.sellerId) {
+      setSelectedListing(null);
+      setSellerId('');
+      setSellerName('');
+      setListingId('');
+      setDescription('');
+      setAmount('');
+      setStep('listing');
+    }
   }
 
   async function handleInitiate() {
@@ -89,61 +98,98 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const fee = amount ? (parseFloat(amount) * 0.01).toFixed(2) : '0.00';
   const payout = amount ? (parseFloat(amount) - parseFloat(fee)).toFixed(2) : '0.00';
 
-  if (step === 'search') {
+  // Step 1: Pick WTS or WTB
+  if (step === 'type') {
     return (
       <View style={styles.container}>
-        <View style={styles.searchHeader}>
-          <Text style={styles.stepTitle}>Select a Listing</Text>
-          <Text style={styles.stepHint}>Search for the WTS or WTB listing you want to escrow</Text>
-          <Input
-            placeholder="Search listings..."
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
+        <View style={styles.typeHeader}>
+          <Text style={styles.stepTitle}>Start an Escrow</Text>
+          <Text style={styles.stepHint}>What type of listing do you want to escrow?</Text>
         </View>
-        <FlatList
-          data={searchResults}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.listingItem} onPress={() => selectListing(item)}>
-              <View style={styles.listingHeader}>
-                <View style={[styles.typeBadge, { backgroundColor: item.type === 'WTS' ? colors.wts : colors.wtb }]}>
-                  <Text style={styles.typeBadgeText}>{item.type}</Text>
-                </View>
-                <Text style={styles.listingPrice}>
-                  {item.price ? `$${Number(item.price).toLocaleString()}` : 'DM for price'}
-                </Text>
-              </View>
-              <Text style={styles.listingTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.listingSub}>
-                {item.business_name} - {item.city} - Qty: {item.quantity}
-              </Text>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            searchQuery.length >= 2 ? (
-              <Text style={styles.empty}>No listings found</Text>
-            ) : (
-              <Text style={styles.empty}>Type to search for a listing</Text>
-            )
-          }
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-        />
+        <View style={styles.typeCards}>
+          <TouchableOpacity style={[styles.typeCard, { borderColor: colors.wts }]} onPress={() => pickType('WTS')}>
+            <View style={[styles.typeIcon, { backgroundColor: colors.wts }]}>
+              <Text style={styles.typeIconText}>WTS</Text>
+            </View>
+            <Text style={styles.typeCardTitle}>Want to Sell</Text>
+            <Text style={styles.typeCardHint}>Buy from a seller's listing</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.typeCard, { borderColor: colors.wtb }]} onPress={() => pickType('WTB')}>
+            <View style={[styles.typeIcon, { backgroundColor: colors.wtb }]}>
+              <Text style={styles.typeIconText}>WTB</Text>
+            </View>
+            <Text style={styles.typeCardTitle}>Want to Buy</Text>
+            <Text style={styles.typeCardHint}>Sell to a buyer's request</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
+  // Step 2: Pick a listing
+  if (step === 'listing') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.listHeader}>
+          <TouchableOpacity onPress={goBack}>
+            <Text style={styles.backLink}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.stepTitle}>
+            {selectedType === 'WTS' ? 'Select a WTS Listing' : 'Select a WTB Listing'}
+          </Text>
+          <Text style={styles.stepHint}>
+            {selectedType === 'WTS'
+              ? 'Pick the listing you want to buy from'
+              : 'Pick the buyer request you want to fulfill'}
+          </Text>
+        </View>
+        {loadingListings ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+        ) : (
+          <FlatList
+            data={listings}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.listingItem} onPress={() => selectListing(item)}>
+                <View style={styles.listingRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listingTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.listingSub}>
+                      {item.business_name} - {item.city}
+                    </Text>
+                    <Text style={styles.listingMeta}>
+                      Qty: {item.quantity} - {item.condition}
+                    </Text>
+                  </View>
+                  <Text style={styles.listingPrice}>
+                    {item.price ? `$${Number(item.price).toLocaleString()}` : 'DM'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <Text style={styles.empty}>
+                No {selectedType} listings available right now
+              </Text>
+            }
+            contentContainerStyle={styles.listContent}
+          />
+        )}
+      </View>
+    );
+  }
+
+  // Step 3: Escrow form
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Selected listing summary */}
       {selectedListing && (
         <View style={styles.selectedCard}>
-          <View style={styles.listingHeader}>
+          <View style={styles.selectedHeader}>
             <View style={[styles.typeBadge, { backgroundColor: selectedListing.type === 'WTS' ? colors.wts : colors.wtb }]}>
               <Text style={styles.typeBadgeText}>{selectedListing.type}</Text>
             </View>
-            <TouchableOpacity onPress={clearSelection}>
+            <TouchableOpacity onPress={goBack}>
               <Text style={styles.changeLink}>Change</Text>
             </TouchableOpacity>
           </View>
@@ -153,9 +199,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
       )}
 
       {!selectedListing && sellerName && (
-        <View>
-          <Input label="Seller" value={sellerName} editable={false} />
-        </View>
+        <Input label="Seller" value={sellerName} editable={false} />
       )}
 
       <Input
@@ -190,9 +234,36 @@ export default function InitiateEscrowScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
-  searchHeader: { padding: spacing.md, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
-  stepTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 },
-  stepHint: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
+  typeHeader: { padding: spacing.lg, paddingBottom: spacing.md },
+  stepTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  stepHint: { fontSize: 14, color: colors.textSecondary },
+  typeCards: { flexDirection: 'row', paddingHorizontal: spacing.md, gap: spacing.md },
+  typeCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 2,
+  },
+  typeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  typeIconText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  typeCardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  typeCardHint: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
+  listHeader: {
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backLink: { color: colors.primary, fontSize: 14, fontWeight: '600', marginBottom: spacing.sm },
   listContent: { paddingBottom: spacing.xl },
   listingItem: {
     backgroundColor: colors.surface,
@@ -200,12 +271,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  listingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  typeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  listingRow: { flexDirection: 'row', alignItems: 'center' },
   listingTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
-  listingPrice: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  listingPrice: { fontSize: 16, fontWeight: '700', color: colors.primary, marginLeft: spacing.sm },
   listingSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  listingMeta: { fontSize: 12, color: colors.textLight, marginTop: 2, textTransform: 'capitalize' },
   selectedCard: {
     backgroundColor: colors.surface,
     padding: spacing.md,
@@ -214,6 +284,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
+  selectedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  typeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   selectedTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 4 },
   selectedSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600' },
