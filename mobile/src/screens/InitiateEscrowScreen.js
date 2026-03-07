@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
 export default function InitiateEscrowScreen({ route, navigation }) {
   const prefill = route.params || {};
-  const [sellerId, setSellerId] = useState(prefill.sellerId || '');
-  const [sellerName, setSellerName] = useState(prefill.sellerName || '');
+  const { user } = useAuth();
+
+  const [step, setStep] = useState(prefill.sellerId ? 'form' : 'search');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [selectedListing, setSelectedListing] = useState(null);
+
+  const [sellerId, setSellerId] = useState(prefill.sellerId || '');
+  const [sellerName, setSellerName] = useState(prefill.sellerName || '');
+  const [listingId, setListingId] = useState(prefill.listingId || '');
   const [amount, setAmount] = useState(prefill.amount || '');
   const [description, setDescription] = useState(prefill.description || '');
   const [loading, setLoading] = useState(false);
@@ -22,23 +29,34 @@ export default function InitiateEscrowScreen({ route, navigation }) {
       return;
     }
     try {
-      const data = await api.searchUsers(text);
-      setSearchResults(data.users);
+      const data = await api.searchListings({ keyword: text });
+      // Filter out own listings
+      setSearchResults((data.listings || []).filter(l => l.user_id !== user.id));
     } catch (err) {
       console.error(err);
     }
   }
 
-  function selectSeller(user) {
-    setSellerId(user.id);
-    setSellerName(user.business_name);
-    setSearchQuery('');
-    setSearchResults([]);
+  function selectListing(listing) {
+    setSelectedListing(listing);
+    setSellerId(listing.user_id);
+    setSellerName(listing.business_name);
+    setListingId(listing.id);
+    setDescription(`${listing.title} - Qty: ${listing.quantity}`);
+    setAmount(listing.price ? String(listing.price) : '');
+    setStep('form');
   }
 
-  function clearSeller() {
+  function clearSelection() {
+    setSelectedListing(null);
     setSellerId('');
     setSellerName('');
+    setListingId('');
+    setDescription('');
+    setAmount('');
+    setSearchQuery('');
+    setSearchResults([]);
+    setStep('search');
   }
 
   async function handleInitiate() {
@@ -56,7 +74,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         seller_id: sellerId,
         amount: parseFloat(amount),
         product_description: description,
-        listing_id: prefill.listingId || undefined,
+        listing_id: listingId || undefined,
       });
       Alert.alert('Escrow Created', 'Waiting for seller to confirm the deal.', [
         { text: 'OK', onPress: () => navigation.navigate('EscrowDetail', { id: data.escrow.id }) },
@@ -71,31 +89,72 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const fee = amount ? (parseFloat(amount) * 0.01).toFixed(2) : '0.00';
   const payout = amount ? (parseFloat(amount) - parseFloat(fee)).toFixed(2) : '0.00';
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {sellerName ? (
-        <View>
-          <Input label="Seller" value={sellerName} editable={false} />
-          {!prefill.sellerId && (
-            <TouchableOpacity onPress={clearSeller}>
-              <Text style={styles.changeLink}>Change seller</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        <View>
+  if (step === 'search') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.searchHeader}>
+          <Text style={styles.stepTitle}>Select a Listing</Text>
+          <Text style={styles.stepHint}>Search for the WTS or WTB listing you want to escrow</Text>
           <Input
-            label="Search Seller"
-            placeholder="Type business name..."
+            placeholder="Search listings..."
             value={searchQuery}
             onChangeText={handleSearch}
           />
-          {searchResults.map(u => (
-            <TouchableOpacity key={u.id} style={styles.resultItem} onPress={() => selectSeller(u)}>
-              <Text style={styles.resultName}>{u.business_name}</Text>
-              <Text style={styles.resultCity}>{u.city}</Text>
+        </View>
+        <FlatList
+          data={searchResults}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.listingItem} onPress={() => selectListing(item)}>
+              <View style={styles.listingHeader}>
+                <View style={[styles.typeBadge, { backgroundColor: item.type === 'WTS' ? colors.wts : colors.wtb }]}>
+                  <Text style={styles.typeBadgeText}>{item.type}</Text>
+                </View>
+                <Text style={styles.listingPrice}>
+                  {item.price ? `$${Number(item.price).toLocaleString()}` : 'DM for price'}
+                </Text>
+              </View>
+              <Text style={styles.listingTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.listingSub}>
+                {item.business_name} - {item.city} - Qty: {item.quantity}
+              </Text>
             </TouchableOpacity>
-          ))}
+          )}
+          ListEmptyComponent={
+            searchQuery.length >= 2 ? (
+              <Text style={styles.empty}>No listings found</Text>
+            ) : (
+              <Text style={styles.empty}>Type to search for a listing</Text>
+            )
+          }
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* Selected listing summary */}
+      {selectedListing && (
+        <View style={styles.selectedCard}>
+          <View style={styles.listingHeader}>
+            <View style={[styles.typeBadge, { backgroundColor: selectedListing.type === 'WTS' ? colors.wts : colors.wtb }]}>
+              <Text style={styles.typeBadgeText}>{selectedListing.type}</Text>
+            </View>
+            <TouchableOpacity onPress={clearSelection}>
+              <Text style={styles.changeLink}>Change</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.selectedTitle}>{selectedListing.title}</Text>
+          <Text style={styles.selectedSub}>{sellerName} - Qty: {selectedListing.quantity}</Text>
+        </View>
+      )}
+
+      {!selectedListing && sellerName && (
+        <View>
+          <Input label="Seller" value={sellerName} editable={false} />
         </View>
       )}
 
@@ -131,15 +190,32 @@ export default function InitiateEscrowScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
-  changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600', marginTop: -4, marginBottom: spacing.sm },
-  resultItem: {
+  searchHeader: { padding: spacing.md, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  stepTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  stepHint: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
+  listContent: { paddingBottom: spacing.xl },
+  listingItem: {
     backgroundColor: colors.surface,
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    borderRadius: 8,
-    marginBottom: 2,
   },
-  resultName: { fontSize: 15, fontWeight: '600', color: colors.text },
-  resultCity: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  listingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  typeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  listingTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  listingPrice: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  listingSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  selectedCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  selectedTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 4 },
+  selectedSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
 });
