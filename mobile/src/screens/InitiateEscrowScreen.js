@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Alert } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -9,9 +9,37 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const prefill = route.params || {};
   const [sellerId, setSellerId] = useState(prefill.sellerId || '');
   const [sellerName, setSellerName] = useState(prefill.sellerName || '');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [amount, setAmount] = useState(prefill.amount || '');
   const [description, setDescription] = useState(prefill.description || '');
   const [loading, setLoading] = useState(false);
+
+  async function handleSearch(text) {
+    setSearchQuery(text);
+    if (text.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const data = await api.searchUsers(text);
+      setSearchResults(data.users);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function selectSeller(user) {
+    setSellerId(user.id);
+    setSellerName(user.business_name);
+    setSearchQuery('');
+    setSearchResults([]);
+  }
+
+  function clearSeller() {
+    setSellerId('');
+    setSellerName('');
+  }
 
   async function handleInitiate() {
     if (!sellerId || !amount || !description) {
@@ -46,14 +74,29 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {sellerName ? (
-        <Input label="Seller" value={sellerName} editable={false} />
+        <View>
+          <Input label="Seller" value={sellerName} editable={false} />
+          {!prefill.sellerId && (
+            <TouchableOpacity onPress={clearSeller}>
+              <Text style={styles.changeLink}>Change seller</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       ) : (
-        <Input
-          label="Seller ID"
-          placeholder="Enter seller's user ID"
-          value={sellerId}
-          onChangeText={setSellerId}
-        />
+        <View>
+          <Input
+            label="Search Seller"
+            placeholder="Type business name..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          {searchResults.map(u => (
+            <TouchableOpacity key={u.id} style={styles.resultItem} onPress={() => selectSeller(u)}>
+              <Text style={styles.resultName}>{u.business_name}</Text>
+              <Text style={styles.resultCity}>{u.city}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       )}
 
       <Input
@@ -88,4 +131,15 @@ export default function InitiateEscrowScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
+  changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600', marginTop: -4, marginBottom: spacing.sm },
+  resultItem: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    borderRadius: 8,
+    marginBottom: 2,
+  },
+  resultName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  resultCity: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
 });

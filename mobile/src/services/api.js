@@ -62,6 +62,10 @@ class ApiService {
     return this.request(`/users/${id}`);
   }
 
+  searchUsers(q) {
+    return this.request(`/users/search?q=${encodeURIComponent(q)}`);
+  }
+
   updateProfile(body) {
     return this.request('/users/me', { method: 'PUT', body: JSON.stringify(body) });
   }

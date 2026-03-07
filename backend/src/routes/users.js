@@ -11,6 +11,26 @@ router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });
 });
 
+// GET /users/search?q=name - search users by business name
+router.get('/search', authenticate, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) {
+      return res.json({ users: [] });
+    }
+    const result = await db.query(
+      `SELECT id, business_name, city, rating_score FROM users
+       WHERE is_suspended = FALSE AND id != $1 AND LOWER(business_name) LIKE LOWER($2)
+       ORDER BY business_name LIMIT 10`,
+      [req.user.id, `%${q}%`]
+    );
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.error('Search users error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /users/:id - get user profile
 router.get('/:id', async (req, res) => {
   try {
