@@ -7,6 +7,15 @@ const validate = require('../middleware/validate');
 
 const router = express.Router();
 
+// Strip all non-digit characters for phone comparison
+function normalizePhone(phone) {
+  return (phone || '').replace(/\D/g, '');
+}
+
+function isAdminPhone(phone) {
+  return normalizePhone(phone) === normalizePhone(process.env.ADMIN_PHONE);
+}
+
 function generateToken(userId) {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '30d',
@@ -34,7 +43,7 @@ router.post(
       }
 
       const password_hash = await bcrypt.hash(password, 12);
-      const isAdmin = phone === process.env.ADMIN_PHONE;
+      const isAdmin = isAdminPhone(phone);
 
       const result = await db.query(
         `INSERT INTO users (phone, password_hash, business_name, city, category, is_admin)
@@ -87,7 +96,7 @@ router.post(
       }
 
       // Sync admin status on login
-      const shouldBeAdmin = phone === process.env.ADMIN_PHONE;
+      const shouldBeAdmin = isAdminPhone(phone);
       if (shouldBeAdmin !== user.is_admin) {
         await db.query('UPDATE users SET is_admin = $1 WHERE id = $2', [shouldBeAdmin, user.id]);
         user.is_admin = shouldBeAdmin;
