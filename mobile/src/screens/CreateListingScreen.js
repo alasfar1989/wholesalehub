@@ -6,7 +6,7 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
-const CONDITIONS = ['new', 'like new', 'good', 'fair', 'refurbished'];
+const CONDITIONS = ['new', 'A stock', 'B stock', 'A/B stock', 'C stock', 'broken', 'refurbished'];
 const CATEGORIES = ['electronics', 'phones', 'laptops', 'tablets', 'accessories', 'components', 'networking', 'other'];
 
 export default function CreateListingScreen({ route, navigation }) {
@@ -23,6 +23,7 @@ export default function CreateListingScreen({ route, navigation }) {
     condition: editListing?.condition || 'new',
     category: editListing?.category || 'electronics',
     city: editListing?.city || user?.city || '',
+    dmForPrice: editListing ? !editListing.price : false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -102,14 +103,29 @@ export default function CreateListingScreen({ route, navigation }) {
       />
 
       <View style={styles.row}>
-        <Input
-          label={form.type === 'WTS' ? 'Price ($)' : 'Budget ($)'}
-          placeholder="0.00"
-          value={form.price}
-          onChangeText={v => updateField('price', v)}
-          keyboardType="decimal-pad"
-          style={{ flex: 1, marginRight: spacing.sm }}
-        />
+        <View style={{ flex: 1, marginRight: spacing.sm }}>
+          <Input
+            label={form.type === 'WTS' ? 'Price ($)' : 'Budget ($)'}
+            placeholder="0.00"
+            value={form.price}
+            onChangeText={v => updateField('price', v)}
+            keyboardType="decimal-pad"
+            editable={!form.dmForPrice}
+          />
+          <TouchableOpacity
+            style={styles.dmToggle}
+            onPress={() => {
+              const next = !form.dmForPrice;
+              updateField('dmForPrice', next);
+              if (next) updateField('price', '');
+            }}
+          >
+            <View style={[styles.checkbox, form.dmForPrice && styles.checkboxActive]}>
+              {form.dmForPrice && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.dmText}>DM for price</Text>
+          </TouchableOpacity>
+        </View>
         <Input
           label="Quantity"
           placeholder="1"
@@ -220,6 +236,36 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+  },
+  dmToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -4,
+    marginBottom: spacing.sm,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginRight: spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dmText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   chips: {
     flexDirection: 'row',

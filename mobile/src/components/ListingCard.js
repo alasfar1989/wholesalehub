@@ -20,9 +20,9 @@ export default function ListingCard({ listing, onPress }) {
 
       <Text style={styles.title} numberOfLines={2}>{listing.title}</Text>
 
-      {listing.price && (
-        <Text style={styles.price}>${Number(listing.price).toLocaleString()}</Text>
-      )}
+      <Text style={styles.price}>
+        {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
+      </Text>
 
       <View style={styles.meta}>
         {listing.quantity > 1 && (

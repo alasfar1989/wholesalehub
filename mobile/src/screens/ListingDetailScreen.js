@@ -84,9 +84,9 @@ export default function ListingDetailScreen({ route, navigation }) {
 
       <Text style={styles.title}>{listing.title}</Text>
 
-      {listing.price && (
-        <Text style={styles.price}>${Number(listing.price).toLocaleString()}</Text>
-      )}
+      <Text style={styles.price}>
+        {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
+      </Text>
 
       <View style={styles.detailsGrid}>
         <DetailItem label="Quantity" value={listing.quantity} />
