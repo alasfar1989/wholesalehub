@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -35,7 +35,7 @@ export default function SearchScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.filters}>
         <Input
           placeholder="Search products..."
@@ -92,7 +92,7 @@ export default function SearchScreen({ navigation }) {
         }
         contentContainerStyle={styles.list}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

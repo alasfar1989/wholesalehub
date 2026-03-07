@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl, SafeAreaView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import Button from '../components/Button';
@@ -94,7 +94,7 @@ export default function AdminScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -243,7 +243,7 @@ export default function AdminScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
