@@ -18,12 +18,15 @@ import AddReferenceScreen from '../screens/AddReferenceScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ConversationsScreen from '../screens/ConversationsScreen';
 import AdminScreen from '../screens/AdminScreen';
+import EscrowListScreen from '../screens/EscrowListScreen';
+import InitiateEscrowScreen from '../screens/InitiateEscrowScreen';
+import EscrowDetailScreen from '../screens/EscrowDetailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Home: '[]', Create: '+', Search: 'Q', Messages: '@', Profile: 'P', Admin: 'A' };
+  const icons = { Home: '[]', Create: '+', Search: 'Q', Messages: '@', Escrow: '$', Profile: 'P', Admin: 'A' };
   return (
     <Text style={{ fontSize: 11, color: focused ? colors.primary : colors.textLight, fontWeight: focused ? '700' : '400' }}>
       {icons[label] || label.charAt(0)}
@@ -47,7 +50,7 @@ function HomeTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Create" component={CreateListingScreen} options={{ title: 'Post' }} />
-      <Tab.Screen name="Messages" component={ConversationsScreen} />
+      <Tab.Screen name="Escrow" component={EscrowListScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       {user?.is_admin && (
         <Tab.Screen name="Admin" component={AdminScreen} />
@@ -85,6 +88,9 @@ export default function AppNavigator() {
           <Stack.Screen name="CreateListing" component={CreateListingScreen} options={{ title: 'Edit Listing' }} />
           <Stack.Screen name="AddReference" component={AddReferenceScreen} options={{ title: 'Add Reference' }} />
           <Stack.Screen name="Chat" component={ChatScreen} options={({ route }) => ({ title: route.params?.name || 'Chat' })} />
+          <Stack.Screen name="Messages" component={ConversationsScreen} options={{ title: 'Messages' }} />
+          <Stack.Screen name="InitiateEscrow" component={InitiateEscrowScreen} options={{ title: 'New Escrow' }} />
+          <Stack.Screen name="EscrowDetail" component={EscrowDetailScreen} options={{ title: 'Escrow Details' }} />
         </>
       )}
     </Stack.Navigator>

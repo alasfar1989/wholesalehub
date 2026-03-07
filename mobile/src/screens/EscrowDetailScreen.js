@@ -1,0 +1,377 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import Input from '../components/Input';
+import Button from '../components/Button';
+import { colors, spacing } from '../utils/theme';
+
+const STATUS_LABELS = {
+  pending_seller: 'Awaiting Seller Confirmation',
+  pending_payment: 'Awaiting Buyer Payment',
+  payment_received: 'Payment Verified - Ready to Ship',
+  shipped: 'Shipped - Awaiting Delivery',
+  delivered: 'Delivered - Awaiting Admin Release',
+  completed: 'Completed',
+  disputed: 'Disputed',
+  cancelled: 'Cancelled',
+};
+
+const STATUS_COLORS = {
+  pending_seller: colors.warning,
+  pending_payment: colors.warning,
+  payment_received: colors.accent,
+  shipped: colors.wtb,
+  delivered: colors.wts,
+  completed: colors.success,
+  disputed: colors.error,
+  cancelled: colors.textLight,
+};
+
+export default function EscrowDetailScreen({ route, navigation }) {
+  const { id } = route.params;
+  const { user } = useAuth();
+  const [escrow, setEscrow] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [proofUrl, setProofUrl] = useState('');
+  const [tracking, setTracking] = useState('');
+  const [disputeReason, setDisputeReason] = useState('');
+
+  useEffect(() => {
+    loadEscrow();
+  }, [id]);
+
+  async function loadEscrow() {
+    try {
+      const data = await api.getEscrow(id);
+      setEscrow(data.escrow);
+      setEvents(data.events);
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function performAction(action, successMsg) {
+    setActionLoading(true);
+    try {
+      await action();
+      Alert.alert('Success', successMsg);
+      loadEscrow();
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  if (loading) return <View style={styles.center}><Text>Loading...</Text></View>;
+  if (!escrow) return <View style={styles.center}><Text>Escrow not found</Text></View>;
+
+  const isBuyer = user.id === escrow.buyer_id;
+  const isSeller = user.id === escrow.seller_id;
+  const isAdmin = user.is_admin;
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Status */}
+      <View style={[styles.statusBar, { backgroundColor: STATUS_COLORS[escrow.status] }]}>
+        <Text style={styles.statusText}>{STATUS_LABELS[escrow.status]}</Text>
+      </View>
+
+      {/* Amount */}
+      <View style={styles.amountCard}>
+        <Text style={styles.amountLabel}>Escrow Amount</Text>
+        <Text style={styles.amount}>${Number(escrow.amount).toLocaleString()}</Text>
+        <View style={styles.feeRow}>
+          <Text style={styles.feeText}>Fee (1%): ${Number(escrow.escrow_fee).toFixed(2)}</Text>
+          <Text style={styles.feeText}>Seller Payout: ${Number(escrow.seller_payout).toFixed(2)}</Text>
+        </View>
+      </View>
+
+      {/* Details */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Deal Details</Text>
+        <DetailRow label="Product" value={escrow.product_description} />
+        <DetailRow label="Buyer" value={escrow.buyer_name} />
+        <DetailRow label="Seller" value={escrow.seller_name} />
+        {escrow.tracking_number && <DetailRow label="Tracking" value={escrow.tracking_number} />}
+        {escrow.wire_proof_url && <DetailRow label="Wire Proof" value={escrow.wire_proof_url} />}
+        <DetailRow label="Created" value={new Date(escrow.created_at).toLocaleDateString()} />
+      </View>
+
+      {/* Actions based on status and role */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Actions</Text>
+
+        {/* Seller confirms deal */}
+        {isSeller && escrow.status === 'pending_seller' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>The buyer wants to start an escrow with you. Review and confirm.</Text>
+            <Button
+              title="Confirm Deal"
+              onPress={() => performAction(() => api.confirmEscrow(id), 'Deal confirmed! Buyer can now send payment.')}
+              loading={actionLoading}
+            />
+            <Button
+              title="Decline"
+              variant="danger"
+              onPress={() => performAction(() => api.cancelEscrow(id), 'Escrow cancelled.')}
+              loading={actionLoading}
+              style={{ marginTop: spacing.sm }}
+            />
+          </View>
+        )}
+
+        {/* Buyer uploads proof */}
+        {isBuyer && escrow.status === 'pending_payment' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              Wire the funds to the escrow account, then upload your proof of payment (receipt URL or description).
+            </Text>
+            <Input
+              label="Wire Proof (URL or receipt details)"
+              placeholder="Paste receipt link or describe payment"
+              value={proofUrl}
+              onChangeText={setProofUrl}
+              multiline
+            />
+            <Button
+              title="Upload Payment Proof"
+              onPress={() => {
+                if (!proofUrl.trim()) { Alert.alert('Error', 'Please enter proof details'); return; }
+                performAction(() => api.uploadWireProof(id, proofUrl), 'Proof uploaded! Waiting for admin verification.');
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Admin verifies payment */}
+        {isAdmin && escrow.status === 'pending_payment' && escrow.wire_proof_url && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              Buyer uploaded wire proof: {escrow.wire_proof_url}{'\n\n'}Verify you received the funds, then confirm.
+            </Text>
+            <Button
+              title="Confirm Payment Received"
+              onPress={() => {
+                Alert.alert('Verify Payment', `Confirm you received $${escrow.amount} from ${escrow.buyer_name}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Confirm', onPress: () => performAction(() => api.verifyPayment(id), 'Payment verified! Seller can now ship.') },
+                ]);
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Seller ships */}
+        {isSeller && escrow.status === 'payment_received' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>Payment has been verified. Ship the product and enter the tracking number.</Text>
+            <Input
+              label="Tracking Number"
+              placeholder="Enter shipping tracking number"
+              value={tracking}
+              onChangeText={setTracking}
+            />
+            <Button
+              title="Mark as Shipped"
+              onPress={() => {
+                if (!tracking.trim()) { Alert.alert('Error', 'Please enter tracking number'); return; }
+                performAction(() => api.shipEscrow(id, tracking), 'Marked as shipped!');
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Buyer confirms receipt */}
+        {isBuyer && escrow.status === 'shipped' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              Tracking: {escrow.tracking_number}{'\n\n'}Once you receive the product and verify the condition, confirm receipt.
+            </Text>
+            <Button
+              title="Confirm Product Received"
+              onPress={() => {
+                Alert.alert('Confirm Receipt', 'Have you received the product and verified it matches the deal?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Confirm', onPress: () => performAction(() => api.confirmReceipt(id), 'Receipt confirmed! Admin will release payment.') },
+                ]);
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Admin releases payment */}
+        {isAdmin && escrow.status === 'delivered' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              Buyer confirmed receipt. Release ${escrow.seller_payout} to seller (fee: ${escrow.escrow_fee}).
+            </Text>
+            <Button
+              title={`Release $${Number(escrow.seller_payout).toFixed(2)} to Seller`}
+              onPress={() => {
+                Alert.alert('Release Payment', `Release $${escrow.seller_payout} to ${escrow.seller_name}?\nFee collected: $${escrow.escrow_fee}`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Release', onPress: () => performAction(() => api.releasePayment(id), 'Payment released! Transaction complete.') },
+                ]);
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Dispute option */}
+        {(isBuyer || isSeller) && !['completed', 'cancelled', 'disputed'].includes(escrow.status) && (
+          <View style={[styles.actionGroup, { marginTop: spacing.md }]}>
+            <Input
+              label="Dispute Reason"
+              placeholder="Describe the issue..."
+              value={disputeReason}
+              onChangeText={setDisputeReason}
+              multiline
+            />
+            <Button
+              title="Open Dispute"
+              variant="danger"
+              onPress={() => {
+                if (!disputeReason.trim()) { Alert.alert('Error', 'Please describe the issue'); return; }
+                Alert.alert('Open Dispute', 'This will pause the escrow and notify the admin.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Dispute', style: 'destructive', onPress: () => performAction(() => api.disputeEscrow(id, disputeReason), 'Dispute opened. Admin will review.') },
+                ]);
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Cancel option */}
+        {(isBuyer || isSeller) && ['pending_seller', 'pending_payment'].includes(escrow.status) && (
+          <Button
+            title="Cancel Escrow"
+            variant="outline"
+            onPress={() => {
+              Alert.alert('Cancel Escrow', 'Are you sure?', [
+                { text: 'No', style: 'cancel' },
+                { text: 'Yes', style: 'destructive', onPress: () => performAction(() => api.cancelEscrow(id), 'Escrow cancelled.') },
+              ]);
+            }}
+            loading={actionLoading}
+            style={{ marginTop: spacing.sm }}
+          />
+        )}
+
+        {/* Completed / no actions */}
+        {escrow.status === 'completed' && (
+          <Text style={styles.completedText}>Transaction complete. Both parties can rate each other.</Text>
+        )}
+      </View>
+
+      {/* Event Timeline */}
+      {events.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Timeline</Text>
+          {events.map(ev => (
+            <View key={ev.id} style={styles.event}>
+              <View style={styles.eventDot} />
+              <View style={styles.eventContent}>
+                <Text style={styles.eventAction}>{ev.action.replace(/_/g, ' ')}</Text>
+                {ev.performed_by_name && <Text style={styles.eventBy}>by {ev.performed_by_name}</Text>}
+                {ev.details ? <Text style={styles.eventDetails}>{ev.details}</Text> : null}
+                <Text style={styles.eventTime}>{new Date(ev.created_at).toLocaleString()}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: spacing.xl },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  statusBar: {
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  statusText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  amountCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  amountLabel: { fontSize: 13, color: colors.textSecondary },
+  amount: { fontSize: 36, fontWeight: '800', color: colors.primary, marginVertical: spacing.xs },
+  feeRow: { flexDirection: 'row', gap: spacing.md },
+  feeText: { fontSize: 12, color: colors.textLight },
+  section: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  detailLabel: { fontSize: 14, color: colors.textSecondary },
+  detailValue: { fontSize: 14, fontWeight: '500', color: colors.text, flex: 1, textAlign: 'right', marginLeft: spacing.md },
+  actionGroup: {
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    borderRadius: 8,
+  },
+  actionHint: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    lineHeight: 20,
+  },
+  completedText: {
+    fontSize: 14,
+    color: colors.success,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  event: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  eventDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+    marginTop: 6,
+    marginRight: spacing.sm,
+  },
+  eventContent: { flex: 1 },
+  eventAction: { fontSize: 14, fontWeight: '600', color: colors.text, textTransform: 'capitalize' },
+  eventBy: { fontSize: 12, color: colors.textSecondary },
+  eventDetails: { fontSize: 12, color: colors.textLight, marginTop: 2 },
+  eventTime: { fontSize: 11, color: colors.textLight, marginTop: 2 },
+});

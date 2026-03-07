@@ -10,6 +10,8 @@ export default function AdminScreen({ navigation }) {
   const [tab, setTab] = useState('dashboard');
   const [users, setUsers] = useState([]);
   const [listings, setListings] = useState([]);
+  const [escrows, setEscrows] = useState([]);
+  const [escrowRevenue, setEscrowRevenue] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -74,10 +76,21 @@ export default function AdminScreen({ navigation }) {
     }
   }
 
+  async function loadEscrows() {
+    try {
+      const data = await api.getAdminEscrows();
+      setEscrows(data.escrows);
+      setEscrowRevenue(data.revenue);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   function switchTab(t) {
     setTab(t);
     if (t === 'users') loadUsers();
     if (t === 'listings') loadListings();
+    if (t === 'escrows') loadEscrows();
   }
 
   return (
@@ -88,7 +101,7 @@ export default function AdminScreen({ navigation }) {
         style={styles.tabBar}
         contentContainerStyle={styles.tabBarContent}
       >
-        {['dashboard', 'users', 'listings'].map(t => (
+        {['dashboard', 'users', 'listings', 'escrows'].map(t => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, tab === t && styles.tabActive]}
@@ -119,6 +132,20 @@ export default function AdminScreen({ navigation }) {
                 <StatCard label="Featured" value={dashboard.featured.total} color={colors.highlight} />
                 <StatCard label="Avg Rating" value={dashboard.ratings.avg || '0'} color={colors.star} />
               </View>
+
+              {dashboard.escrows && (
+                <>
+                  <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Escrow Revenue</Text>
+                  <View style={styles.statsGrid}>
+                    <StatCard label="Active Escrows" value={dashboard.escrows.active} color={colors.wtb} />
+                    <StatCard label="Completed" value={dashboard.escrows.completed} color={colors.success} />
+                    <StatCard label="Disputed" value={dashboard.escrows.disputed} color={colors.error} />
+                    <StatCard label="Pending Verify" value={dashboard.escrows.pending_verification} color={colors.warning} />
+                    <StatCard label="Fees Collected" value={`$${Number(dashboard.escrows.fees_collected).toFixed(0)}`} color={colors.success} />
+                    <StatCard label="Total Volume" value={`$${Number(dashboard.escrows.total_volume).toFixed(0)}`} color={colors.primary} />
+                  </View>
+                </>
+              )}
             </>
           )}
         </ScrollView>
@@ -176,6 +203,42 @@ export default function AdminScreen({ navigation }) {
                 textStyle={{ fontSize: 12 }}
               />
             </View>
+          )}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+
+      {tab === 'escrows' && (
+        <FlatList
+          data={escrows}
+          keyExtractor={item => item.id}
+          ListHeaderComponent={
+            escrowRevenue && (
+              <View style={styles.revenueHeader}>
+                <Text style={styles.revenueText}>Fees: ${Number(escrowRevenue.total_fees).toFixed(2)} | Volume: ${Number(escrowRevenue.total_volume).toFixed(2)}</Text>
+              </View>
+            )
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.listItem}
+              onPress={() => navigation.navigate('EscrowDetail', { id: item.id })}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  <View style={[styles.typeBadge, { backgroundColor:
+                    item.status === 'completed' ? colors.success :
+                    item.status === 'disputed' ? colors.error :
+                    item.status === 'cancelled' ? colors.textLight :
+                    colors.warning
+                  }]}>
+                    <Text style={styles.typeBadgeText}>{item.status.replace(/_/g, ' ').toUpperCase()}</Text>
+                  </View>
+                </View>
+                <Text style={styles.itemTitle}>${Number(item.amount).toLocaleString()} - {item.product_description?.substring(0, 40)}</Text>
+                <Text style={styles.itemSub}>{item.buyer_name} → {item.seller_name}</Text>
+              </View>
+            </TouchableOpacity>
           )}
           contentContainerStyle={styles.listContent}
         />
@@ -239,4 +302,11 @@ const styles = StyleSheet.create({
   suspended: { fontSize: 11, color: colors.error, fontWeight: '700', marginTop: 2 },
   typeBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
   typeBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  revenueHeader: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  revenueText: { fontSize: 14, fontWeight: '600', color: colors.primary, textAlign: 'center' },
 });

@@ -131,9 +131,24 @@ export default function ListingDetailScreen({ route, navigation }) {
         </View>
       </View>
 
+      {!isOwner && listing.type === 'WTS' && (
+        <Button
+          title="Start Escrow"
+          onPress={() => navigation.navigate('InitiateEscrow', {
+            sellerId: listing.user_id,
+            sellerName: listing.business_name,
+            amount: listing.price ? String(listing.price) : '',
+            description: `${listing.title} - Qty: ${listing.quantity}`,
+            listingId: listing.id,
+          })}
+          style={{ marginBottom: spacing.sm }}
+        />
+      )}
+
       {!isOwner && listing.user_phone && (
         <Button
           title={`Call ${listing.user_phone}`}
+          variant="outline"
           onPress={handleContact}
           style={{ marginBottom: spacing.md }}
         />

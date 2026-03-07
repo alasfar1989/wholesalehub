@@ -77,6 +77,38 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Escrows table
+CREATE TABLE IF NOT EXISTS escrows (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
+  product_description TEXT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  escrow_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  seller_payout DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending_seller'
+    CHECK (status IN ('pending_seller', 'pending_payment', 'payment_received', 'shipped', 'delivered', 'completed', 'disputed', 'cancelled')),
+  wire_proof_url TEXT,
+  tracking_number VARCHAR(255),
+  wire_instructions TEXT,
+  admin_notes TEXT DEFAULT '',
+  buyer_confirmed BOOLEAN DEFAULT FALSE,
+  seller_confirmed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Escrow history / audit log
+CREATE TABLE IF NOT EXISTS escrow_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  escrow_id UUID NOT NULL REFERENCES escrows(id) ON DELETE CASCADE,
+  action VARCHAR(50) NOT NULL,
+  performed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  details TEXT DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_listings_user_id ON listings(user_id);
 CREATE INDEX IF NOT EXISTS idx_listings_type ON listings(type);
@@ -87,6 +119,10 @@ CREATE INDEX IF NOT EXISTS idx_listings_active ON listings(is_active) WHERE is_a
 CREATE INDEX IF NOT EXISTS idx_ratings_to_user ON ratings(to_user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages(to_user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(from_user_id, to_user_id);
+CREATE INDEX IF NOT EXISTS idx_escrows_buyer ON escrows(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_escrows_seller ON escrows(seller_id);
+CREATE INDEX IF NOT EXISTS idx_escrows_status ON escrows(status);
+CREATE INDEX IF NOT EXISTS idx_escrow_events_escrow ON escrow_events(escrow_id);
 `;
 
 async function runMigration() {

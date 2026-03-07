@@ -159,6 +159,56 @@ class ApiService {
   adminDeleteListing(listingId) {
     return this.request(`/admin/listings/${listingId}`, { method: 'DELETE' });
   }
+
+  // Escrow
+  initiateEscrow(body) {
+    return this.request('/escrow/initiate', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  getMyEscrows() {
+    return this.request('/escrow/my/all');
+  }
+
+  getEscrow(id) {
+    return this.request(`/escrow/${id}`);
+  }
+
+  confirmEscrow(id) {
+    return this.request(`/escrow/${id}/confirm`, { method: 'POST' });
+  }
+
+  uploadWireProof(id, wireProofUrl) {
+    return this.request(`/escrow/${id}/upload-proof`, { method: 'POST', body: JSON.stringify({ wire_proof_url: wireProofUrl }) });
+  }
+
+  verifyPayment(id, wireInstructions) {
+    return this.request(`/escrow/${id}/payment-received`, { method: 'POST', body: JSON.stringify({ wire_instructions: wireInstructions }) });
+  }
+
+  shipEscrow(id, trackingNumber) {
+    return this.request(`/escrow/${id}/ship`, { method: 'POST', body: JSON.stringify({ tracking_number: trackingNumber }) });
+  }
+
+  confirmReceipt(id) {
+    return this.request(`/escrow/${id}/confirm-receipt`, { method: 'POST' });
+  }
+
+  releasePayment(id) {
+    return this.request(`/escrow/${id}/release-payment`, { method: 'POST' });
+  }
+
+  disputeEscrow(id, reason) {
+    return this.request(`/escrow/${id}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) });
+  }
+
+  cancelEscrow(id) {
+    return this.request(`/escrow/${id}/cancel`, { method: 'POST' });
+  }
+
+  getAdminEscrows(status) {
+    const query = status ? `?status=${status}` : '';
+    return this.request(`/escrow/admin/all${query}`);
+  }
 }
 
 export default new ApiService();

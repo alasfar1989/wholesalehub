@@ -12,6 +12,7 @@ const referenceRoutes = require('./routes/references');
 const ratingRoutes = require('./routes/ratings');
 const messageRoutes = require('./routes/messages');
 const adminRoutes = require('./routes/admin');
+const escrowRoutes = require('./routes/escrow');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/references', referenceRoutes);
 app.use('/ratings', ratingRoutes);
 app.use('/messages', messageRoutes);
 app.use('/admin', adminRoutes);
+app.use('/escrow', escrowRoutes);
 
 // 404 handler
 app.use((req, res) => {

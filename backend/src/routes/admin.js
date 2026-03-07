@@ -12,11 +12,20 @@ router.use(authenticate, requireAdmin);
 // GET /admin/dashboard - dashboard stats
 router.get('/dashboard', async (req, res) => {
   try {
-    const [users, listings, featured, ratings] = await Promise.all([
+    const [users, listings, featured, ratings, escrows] = await Promise.all([
       db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_suspended) as suspended FROM users'),
       db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active) as active, COUNT(*) FILTER (WHERE type = \'WTS\') as wts, COUNT(*) FILTER (WHERE type = \'WTB\') as wtb FROM listings'),
       db.query('SELECT COUNT(*) as total FROM listings WHERE is_featured = TRUE AND is_active = TRUE'),
       db.query('SELECT COUNT(*) as total, AVG(stars)::DECIMAL(3,2) as avg FROM ratings'),
+      db.query(`SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped','delivered')) as active,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE status = 'disputed') as disputed,
+        COALESCE(SUM(escrow_fee) FILTER (WHERE status = 'completed'), 0)::DECIMAL(12,2) as fees_collected,
+        COALESCE(SUM(amount) FILTER (WHERE status = 'completed'), 0)::DECIMAL(12,2) as total_volume,
+        COUNT(*) FILTER (WHERE status = 'pending_payment' AND wire_proof_url IS NOT NULL) as pending_verification
+       FROM escrows`),
     ]);
 
     res.json({
@@ -25,6 +34,7 @@ router.get('/dashboard', async (req, res) => {
         listings: listings.rows[0],
         featured: featured.rows[0],
         ratings: ratings.rows[0],
+        escrows: escrows.rows[0],
       },
     });
   } catch (err) {
