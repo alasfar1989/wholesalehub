@@ -40,9 +40,13 @@ export default function UserProfileScreen({ route, navigation }) {
   }
 
   async function handleRate() {
+    if (!rateComment.trim()) {
+      Alert.alert('Error', 'Please enter feedback');
+      return;
+    }
     try {
       await api.rateUser({ to_user_id: id, stars: rateStars, comment: rateComment });
-      Alert.alert('Success', 'Rating submitted');
+      Alert.alert('Submitted', 'Your rating has been submitted for review.');
       setShowRate(false);
       loadProfile();
     } catch (err) {
@@ -106,7 +110,7 @@ export default function UserProfileScreen({ route, navigation }) {
             ))}
           </View>
           <Input
-            placeholder="Comment (optional)"
+            placeholder="Share your experience (required)"
             value={rateComment}
             onChangeText={setRateComment}
             multiline
@@ -134,7 +138,6 @@ export default function UserProfileScreen({ route, navigation }) {
       {tab === 'references' && references.map(ref => (
         <View key={ref.id} style={styles.card}>
           <Text style={styles.cardName}>{ref.reference_name}</Text>
-          <Text style={styles.cardComment}>{ref.reference_phone}</Text>
         </View>
       ))}
 

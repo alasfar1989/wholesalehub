@@ -126,6 +126,18 @@ class ApiService {
     return this.request('/ratings', { method: 'POST', body: JSON.stringify(body) });
   }
 
+  getPendingRatings() {
+    return this.request('/ratings/pending');
+  }
+
+  approveRating(id) {
+    return this.request(`/ratings/${id}/approve`, { method: 'PUT' });
+  }
+
+  rejectRating(id) {
+    return this.request(`/ratings/${id}/reject`, { method: 'PUT' });
+  }
+
   // Messages
   getConversations() {
     return this.request('/messages/conversations');

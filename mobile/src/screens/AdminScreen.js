@@ -12,6 +12,7 @@ export default function AdminScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [escrows, setEscrows] = useState([]);
   const [escrowRevenue, setEscrowRevenue] = useState(null);
+  const [pendingRatings, setPendingRatings] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -86,11 +87,50 @@ export default function AdminScreen({ navigation }) {
     }
   }
 
+  async function loadPendingRatings() {
+    try {
+      const data = await api.getPendingRatings();
+      setPendingRatings(data.ratings);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleApproveRating(id) {
+    try {
+      await api.approveRating(id);
+      loadPendingRatings();
+      loadDashboard();
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
+  }
+
+  async function handleRejectRating(id) {
+    Alert.alert('Reject Rating', 'Are you sure you want to reject this rating?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reject',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.rejectRating(id);
+            loadPendingRatings();
+            loadDashboard();
+          } catch (err) {
+            Alert.alert('Error', err.message);
+          }
+        },
+      },
+    ]);
+  }
+
   function switchTab(t) {
     setTab(t);
     if (t === 'users') loadUsers();
     if (t === 'listings') loadListings();
     if (t === 'escrows') loadEscrows();
+    if (t === 'ratings') loadPendingRatings();
   }
 
   return (
@@ -101,7 +141,7 @@ export default function AdminScreen({ navigation }) {
         style={styles.tabBar}
         contentContainerStyle={styles.tabBarContent}
       >
-        {['dashboard', 'users', 'listings', 'escrows'].map(t => (
+        {['dashboard', 'users', 'listings', 'escrows', 'ratings'].map(t => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, tab === t && styles.tabActive]}
@@ -131,6 +171,9 @@ export default function AdminScreen({ navigation }) {
                 <StatCard label="WTB" value={dashboard.listings.wtb} color={colors.wtb} />
                 <StatCard label="Featured" value={dashboard.featured.total} color={colors.highlight} />
                 <StatCard label="Avg Rating" value={dashboard.ratings.avg || '0'} color={colors.star} />
+                {Number(dashboard.ratings.pending) > 0 && (
+                  <StatCard label="Pending Reviews" value={dashboard.ratings.pending} color={colors.warning} />
+                )}
               </View>
 
               {dashboard.escrows && (
@@ -243,6 +286,47 @@ export default function AdminScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
+      {tab === 'ratings' && (
+        <FlatList
+          data={pendingRatings}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.listItem}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  <Text style={styles.ratingStars}>{'★'.repeat(item.stars)}{'☆'.repeat(5 - item.stars)}</Text>
+                </View>
+                <Text style={styles.itemTitle}>{item.comment}</Text>
+                <Text style={styles.itemSub}>
+                  From: {item.from_business_name} → To: {item.to_business_name}
+                </Text>
+                <Text style={styles.itemSub}>
+                  Current rating: {Number(item.to_rating_score || 0).toFixed(1)} ({item.to_rating_count || 0} reviews)
+                </Text>
+              </View>
+              <View style={{ gap: spacing.xs }}>
+                <Button
+                  title="Approve"
+                  onPress={() => handleApproveRating(item.id)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+                <Button
+                  title="Reject"
+                  variant="danger"
+                  onPress={() => handleRejectRating(item.id)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No pending ratings to review</Text>
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -309,4 +393,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   revenueText: { fontSize: 14, fontWeight: '600', color: colors.primary, textAlign: 'center' },
+  ratingStars: { fontSize: 16, color: colors.star },
+  emptyText: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
 });

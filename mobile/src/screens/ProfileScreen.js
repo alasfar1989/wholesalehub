@@ -106,7 +106,6 @@ export default function ProfileScreen({ navigation }) {
           {references.map(ref => (
             <View key={ref.id} style={styles.refCard}>
               <Text style={styles.refName}>{ref.reference_name}</Text>
-              <Text style={styles.refPhone}>{ref.reference_phone}</Text>
             </View>
           ))}
           {references.length === 0 && <Text style={styles.empty}>No references yet</Text>}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
@@ -38,6 +38,9 @@ export default function EscrowDetailScreen({ route, navigation }) {
   const [proofUrl, setProofUrl] = useState('');
   const [tracking, setTracking] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
+  const [rateStars, setRateStars] = useState(5);
+  const [rateComment, setRateComment] = useState('');
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   useEffect(() => {
     loadEscrow();
@@ -269,9 +272,40 @@ export default function EscrowDetailScreen({ route, navigation }) {
           />
         )}
 
-        {/* Completed / no actions */}
-        {escrow.status === 'completed' && (
-          <Text style={styles.completedText}>Transaction complete. Both parties can rate each other.</Text>
+        {/* Completed - rating prompt for buyer */}
+        {escrow.status === 'completed' && isBuyer && !ratingSubmitted && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>Transaction complete! Rate your experience with {escrow.seller_name}.</Text>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map(s => (
+                <TouchableOpacity key={s} onPress={() => setRateStars(s)}>
+                  <Text style={[styles.starIcon, s <= rateStars && styles.starActive]}>★</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Input
+              label="Feedback"
+              placeholder="How was your experience?"
+              value={rateComment}
+              onChangeText={setRateComment}
+              multiline
+            />
+            <Button
+              title="Submit Rating"
+              onPress={() => {
+                if (!rateComment.trim()) { Alert.alert('Error', 'Please enter feedback'); return; }
+                performAction(
+                  () => api.rateUser({ to_user_id: escrow.seller_id, stars: rateStars, comment: rateComment, escrow_id: id }),
+                  'Rating submitted! It will appear after admin review.'
+                );
+                setRatingSubmitted(true);
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+        {escrow.status === 'completed' && (isSeller || ratingSubmitted) && (
+          <Text style={styles.completedText}>Transaction complete.</Text>
         )}
       </View>
 
@@ -350,6 +384,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.md,
     lineHeight: 20,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  starIcon: {
+    fontSize: 36,
+    color: colors.border,
+  },
+  starActive: {
+    color: colors.star,
   },
   completedText: {
     fontSize: 14,

@@ -51,8 +51,10 @@ CREATE TABLE IF NOT EXISTS ratings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  escrow_id UUID REFERENCES escrows(id) ON DELETE SET NULL,
   stars INTEGER NOT NULL CHECK (stars >= 1 AND stars <= 5),
   comment TEXT DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(from_user_id, to_user_id)
 );
@@ -117,6 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_listings_city ON listings(city);
 CREATE INDEX IF NOT EXISTS idx_listings_featured ON listings(is_featured) WHERE is_featured = TRUE;
 CREATE INDEX IF NOT EXISTS idx_listings_active ON listings(is_active) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_ratings_to_user ON ratings(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_ratings_status ON ratings(status);
 CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages(to_user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(from_user_id, to_user_id);
 CREATE INDEX IF NOT EXISTS idx_escrows_buyer ON escrows(buyer_id);
@@ -125,10 +128,24 @@ CREATE INDEX IF NOT EXISTS idx_escrows_status ON escrows(status);
 CREATE INDEX IF NOT EXISTS idx_escrow_events_escrow ON escrow_events(escrow_id);
 `;
 
+// Alter existing ratings table to add new columns if they don't exist
+const alterMigration = `
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'status') THEN
+    ALTER TABLE ratings ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved';
+    ALTER TABLE ratings ADD CONSTRAINT ratings_status_check CHECK (status IN ('pending', 'approved', 'rejected'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'escrow_id') THEN
+    ALTER TABLE ratings ADD COLUMN escrow_id UUID REFERENCES escrows(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+`;
+
 async function runMigration() {
   try {
     console.log('Running migrations...');
     await pool.query(migration);
+    await pool.query(alterMigration);
     console.log('Migrations completed successfully.');
   } catch (err) {
     console.error('Migration failed:', err);

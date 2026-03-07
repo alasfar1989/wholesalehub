@@ -12,11 +12,12 @@ router.use(authenticate, requireAdmin);
 // GET /admin/dashboard - dashboard stats
 router.get('/dashboard', async (req, res) => {
   try {
-    const [users, listings, featured, ratings, escrows] = await Promise.all([
+    const [users, listings, featured, ratings, pendingRatings, escrows] = await Promise.all([
       db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_suspended) as suspended FROM users'),
       db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active) as active, COUNT(*) FILTER (WHERE type = \'WTS\') as wts, COUNT(*) FILTER (WHERE type = \'WTB\') as wtb FROM listings'),
       db.query('SELECT COUNT(*) as total FROM listings WHERE is_featured = TRUE AND is_active = TRUE'),
-      db.query('SELECT COUNT(*) as total, AVG(stars)::DECIMAL(3,2) as avg FROM ratings'),
+      db.query("SELECT COUNT(*) as total, AVG(stars)::DECIMAL(3,2) as avg FROM ratings WHERE status = 'approved'"),
+      db.query("SELECT COUNT(*) as pending FROM ratings WHERE status = 'pending'"),
       db.query(`SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped','delivered')) as active,
@@ -33,7 +34,7 @@ router.get('/dashboard', async (req, res) => {
         users: users.rows[0],
         listings: listings.rows[0],
         featured: featured.rows[0],
-        ratings: ratings.rows[0],
+        ratings: { ...ratings.rows[0], pending: pendingRatings.rows[0].pending },
         escrows: escrows.rows[0],
       },
     });
