@@ -57,7 +57,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// Run schema updates on startup
+const db = require('./config/database');
+async function applySchemaUpdates() {
+  try {
+    await db.query('ALTER TABLE ratings ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT \'approved\'');
+    await db.query('ALTER TABLE ratings ADD COLUMN IF NOT EXISTS escrow_id UUID');
+    console.log('Schema updates applied.');
+  } catch (err) {
+    console.error('Schema update error (non-fatal):', err.message);
+  }
+}
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`WholesaleHub API running on port ${PORT}`);
+  await applySchemaUpdates();
 });
