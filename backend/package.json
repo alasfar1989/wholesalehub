@@ -4,7 +4,7 @@
   "description": "WholesaleHub B2B Electronics Marketplace API",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node migrations/run.js && node src/index.js",
     "dev": "nodemon src/index.js",
     "migrate": "node migrations/run.js",
     "seed": "node migrations/seed.js"
