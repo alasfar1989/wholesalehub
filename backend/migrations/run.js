@@ -130,15 +130,8 @@ CREATE INDEX IF NOT EXISTS idx_escrow_events_escrow ON escrow_events(escrow_id);
 
 // Alter existing ratings table to add new columns if they don't exist
 const alterMigration = `
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'status') THEN
-    ALTER TABLE ratings ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'approved';
-    ALTER TABLE ratings ADD CONSTRAINT ratings_status_check CHECK (status IN ('pending', 'approved', 'rejected'));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ratings' AND column_name = 'escrow_id') THEN
-    ALTER TABLE ratings ADD COLUMN escrow_id UUID REFERENCES escrows(id) ON DELETE SET NULL;
-  END IF;
-END $$;
+ALTER TABLE ratings ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'approved';
+ALTER TABLE ratings ADD COLUMN IF NOT EXISTS escrow_id UUID REFERENCES escrows(id) ON DELETE SET NULL;
 `;
 
 async function runMigration() {
