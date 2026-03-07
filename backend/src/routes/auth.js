@@ -86,6 +86,13 @@ router.post(
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      // Sync admin status on login
+      const shouldBeAdmin = phone === process.env.ADMIN_PHONE;
+      if (shouldBeAdmin !== user.is_admin) {
+        await db.query('UPDATE users SET is_admin = $1 WHERE id = $2', [shouldBeAdmin, user.id]);
+        user.is_admin = shouldBeAdmin;
+      }
+
       const { password_hash, ...userWithoutPassword } = user;
       const token = generateToken(user.id);
 
