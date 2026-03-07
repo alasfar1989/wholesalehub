@@ -270,45 +270,7 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
   }
 });
 
-// GET /escrow/:id - get escrow details
-router.get('/:id', authenticate, async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT e.*,
-        b.business_name as buyer_name, b.phone as buyer_phone,
-        s.business_name as seller_name, s.phone as seller_phone
-       FROM escrows e
-       JOIN users b ON e.buyer_id = b.id
-       JOIN users s ON e.seller_id = s.id
-       WHERE e.id = $1`,
-      [req.params.id]
-    );
-
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
-
-    const e = result.rows[0];
-    // Only buyer, seller, or admin can view
-    if (e.buyer_id !== req.user.id && e.seller_id !== req.user.id && !req.user.is_admin) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-
-    // Get event history
-    const events = await db.query(
-      `SELECT ee.*, u.business_name as performed_by_name
-       FROM escrow_events ee
-       LEFT JOIN users u ON ee.performed_by = u.id
-       WHERE ee.escrow_id = $1 ORDER BY ee.created_at ASC`,
-      [req.params.id]
-    );
-
-    res.json({ escrow: e, events: events.rows });
-  } catch (err) {
-    console.error('Get escrow error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /escrow/my/all - get user's escrows (as buyer or seller)
+// GET /escrow/my/all - get user's escrows (MUST be before /:id)
 router.get('/my/all', authenticate, async (req, res) => {
   try {
     const result = await db.query(
@@ -330,7 +292,7 @@ router.get('/my/all', authenticate, async (req, res) => {
   }
 });
 
-// GET /escrow/admin/all - admin: all escrows
+// GET /escrow/admin/all - admin: all escrows (MUST be before /:id)
 router.get('/admin/all', authenticate, requireAdmin, async (req, res) => {
   try {
     const statusFilter = req.query.status;
@@ -365,6 +327,42 @@ router.get('/admin/all', authenticate, requireAdmin, async (req, res) => {
     res.json({ escrows: result.rows, revenue: revenue.rows[0] });
   } catch (err) {
     console.error('Admin escrows error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /escrow/:id - get escrow details (MUST be after /my/all and /admin/all)
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT e.*,
+        b.business_name as buyer_name, b.phone as buyer_phone,
+        s.business_name as seller_name, s.phone as seller_phone
+       FROM escrows e
+       JOIN users b ON e.buyer_id = b.id
+       JOIN users s ON e.seller_id = s.id
+       WHERE e.id = $1`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = result.rows[0];
+    if (e.buyer_id !== req.user.id && e.seller_id !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const events = await db.query(
+      `SELECT ee.*, u.business_name as performed_by_name
+       FROM escrow_events ee
+       LEFT JOIN users u ON ee.performed_by = u.id
+       WHERE ee.escrow_id = $1 ORDER BY ee.created_at ASC`,
+      [req.params.id]
+    );
+
+    res.json({ escrow: e, events: events.rows });
+  } catch (err) {
+    console.error('Get escrow error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
