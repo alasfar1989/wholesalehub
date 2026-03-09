@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -113,7 +114,8 @@ export default function CreateListingScreen({ route, navigation }) {
   const totalPhotos = photos.length + existingPhotos.length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={styles.container} edges={['top']}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.heading}>{isEdit ? 'Edit Listing' : 'Create Listing'}</Text>
 
       {/* Photos */}
@@ -266,6 +268,7 @@ export default function CreateListingScreen({ route, navigation }) {
         style={{ marginTop: spacing.sm }}
       />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
