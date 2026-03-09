@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS escrows (
     CHECK (status IN ('pending_seller', 'pending_payment', 'payment_received', 'shipped', 'delivered', 'completed', 'disputed', 'cancelled')),
   wire_proof_url TEXT,
   tracking_number VARCHAR(255),
+  payment_method VARCHAR(20) NOT NULL DEFAULT 'wire',
   wire_instructions TEXT,
   admin_notes TEXT DEFAULT '',
   buyer_confirmed BOOLEAN DEFAULT FALSE,

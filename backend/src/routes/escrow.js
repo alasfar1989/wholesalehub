@@ -24,11 +24,12 @@ router.post(
     body('amount').isFloat({ min: 1 }).withMessage('Amount must be at least $1'),
     body('product_description').trim().notEmpty().withMessage('Product description is required'),
     body('listing_id').optional(),
+    body('payment_method').optional().isIn(['wire', 'usdt']).withMessage('Payment method must be wire or usdt'),
   ],
   validate,
   async (req, res) => {
     try {
-      const { seller_id, amount, product_description, listing_id } = req.body;
+      const { seller_id, amount, product_description, listing_id, payment_method } = req.body;
 
       if (seller_id === req.user.id) {
         return res.status(400).json({ error: 'Cannot create escrow with yourself' });
@@ -41,15 +42,16 @@ router.post(
 
       const fee = (parseFloat(amount) * ESCROW_FEE_PERCENT).toFixed(2);
       const payout = (parseFloat(amount) - parseFloat(fee)).toFixed(2);
+      const method = payment_method || 'wire';
 
       const result = await db.query(
-        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, seller_payout, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending_seller')
+        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, seller_payout, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending_seller')
          RETURNING *`,
-        [req.user.id, seller_id, listing_id || null, product_description, amount, fee, payout]
+        [req.user.id, seller_id, listing_id || null, product_description, amount, fee, payout, method]
       );
 
-      await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount}`);
+      await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} via ${method.toUpperCase()}`);
 
       res.status(201).json({ escrow: result.rows[0] });
     } catch (err) {

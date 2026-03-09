@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +22,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const [listingId, setListingId] = useState(prefill.listingId || '');
   const [amount, setAmount] = useState(prefill.amount || '');
   const [description, setDescription] = useState(prefill.description || '');
+  const [paymentMethod, setPaymentMethod] = useState('wire');
   const [loading, setLoading] = useState(false);
 
   function pickType(type) {
@@ -34,8 +35,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
     setLoadingListings(true);
     try {
       const data = await api.searchListings({ type });
-      // Filter out own listings
-      setListings((data.listings || []).filter(l => l.user_id !== user.id));
+      setListings(data.listings || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,6 +44,10 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   }
 
   function selectListing(listing) {
+    if (listing.user_id === user.id) {
+      Alert.alert('Error', 'You cannot escrow your own listing');
+      return;
+    }
     setSelectedListing(listing);
     setSellerId(listing.user_id);
     setSellerName(listing.business_name);
@@ -84,6 +88,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         amount: parseFloat(amount),
         product_description: description,
         listing_id: listingId || undefined,
+        payment_method: paymentMethod,
       });
       Alert.alert('Escrow Created', 'Waiting for seller to confirm the deal.', [
         { text: 'OK', onPress: () => navigation.navigate('EscrowDetail', { id: data.escrow.id }) },
@@ -149,24 +154,32 @@ export default function InitiateEscrowScreen({ route, navigation }) {
           <FlatList
             data={listings}
             keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.listingItem} onPress={() => selectListing(item)}>
-                <View style={styles.listingRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.listingTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.listingSub}>
-                      {item.business_name} - {item.city}
-                    </Text>
-                    <Text style={styles.listingMeta}>
-                      Qty: {item.quantity} - {item.condition}
+            renderItem={({ item }) => {
+              const isOwn = item.user_id === user.id;
+              return (
+                <TouchableOpacity
+                  style={[styles.listingItem, isOwn && styles.listingItemOwn]}
+                  onPress={() => selectListing(item)}
+                  disabled={isOwn}
+                >
+                  <View style={styles.listingRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.listingTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={styles.listingSub}>
+                        {item.business_name} - {item.city}
+                      </Text>
+                      <Text style={styles.listingMeta}>
+                        Qty: {item.quantity} - {item.condition}
+                      </Text>
+                      {isOwn && <Text style={styles.ownLabel}>Your listing</Text>}
+                    </View>
+                    <Text style={styles.listingPrice}>
+                      {item.price ? `$${Number(item.price).toLocaleString()}` : 'DM'}
                     </Text>
                   </View>
-                  <Text style={styles.listingPrice}>
-                    {item.price ? `$${Number(item.price).toLocaleString()}` : 'DM'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                </TouchableOpacity>
+              );
+            }}
             ListEmptyComponent={
               <Text style={styles.empty}>
                 No {selectedType} listings available right now
@@ -218,6 +231,23 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         onChangeText={setAmount}
         keyboardType="decimal-pad"
       />
+
+      {/* Payment Method */}
+      <Text style={styles.fieldLabel}>Payment Method</Text>
+      <View style={styles.paymentRow}>
+        <TouchableOpacity
+          style={[styles.paymentOption, paymentMethod === 'wire' && styles.paymentActive]}
+          onPress={() => setPaymentMethod('wire')}
+        >
+          <Text style={[styles.paymentText, paymentMethod === 'wire' && styles.paymentTextActive]}>Wire Transfer</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.paymentOption, paymentMethod === 'usdt' && styles.paymentActive]}
+          onPress={() => setPaymentMethod('usdt')}
+        >
+          <Text style={[styles.paymentText, paymentMethod === 'usdt' && styles.paymentTextActive]}>USDT</Text>
+        </TouchableOpacity>
+      </View>
 
       {amount ? (
         <>
@@ -271,11 +301,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  listingItemOwn: { opacity: 0.4 },
   listingRow: { flexDirection: 'row', alignItems: 'center' },
   listingTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   listingPrice: { fontSize: 16, fontWeight: '700', color: colors.primary, marginLeft: spacing.sm },
   listingSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   listingMeta: { fontSize: 12, color: colors.textLight, marginTop: 2, textTransform: 'capitalize' },
+  ownLabel: { fontSize: 11, color: colors.textLight, fontStyle: 'italic', marginTop: 2 },
   selectedCard: {
     backgroundColor: colors.surface,
     padding: spacing.md,
@@ -290,5 +322,22 @@ const styles = StyleSheet.create({
   selectedTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 4 },
   selectedSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  fieldLabel: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: spacing.sm },
+  paymentRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  paymentOption: {
+    flex: 1,
+    padding: spacing.sm + 4,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  paymentActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  paymentText: { fontSize: 15, fontWeight: '600', color: colors.text },
+  paymentTextActive: { color: '#fff' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
 });

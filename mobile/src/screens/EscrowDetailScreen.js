@@ -101,6 +101,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         <DetailRow label="Product" value={escrow.product_description} />
         <DetailRow label="Buyer" value={escrow.buyer_name} />
         <DetailRow label="Seller" value={escrow.seller_name} />
+        <DetailRow label="Payment" value={escrow.payment_method === 'usdt' ? 'USDT' : 'Wire Transfer'} />
         {escrow.tracking_number && <DetailRow label="Tracking" value={escrow.tracking_number} />}
         {escrow.wire_proof_url && <DetailRow label="Wire Proof" value={escrow.wire_proof_url} />}
         <DetailRow label="Created" value={new Date(escrow.created_at).toLocaleDateString()} />
