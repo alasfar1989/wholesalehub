@@ -111,4 +111,16 @@ router.put(
   }
 );
 
+// PUT /users/me/push-token - register push notification token
+router.put('/me/push-token', authenticate, async (req, res) => {
+  try {
+    const { push_token } = req.body;
+    await db.query('UPDATE users SET push_token = $1 WHERE id = $2', [push_token || null, req.user.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update push token error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

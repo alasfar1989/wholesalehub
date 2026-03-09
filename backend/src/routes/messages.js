@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { sendPushNotification } = require('../utils/pushNotifications');
 
 const router = express.Router();
 
@@ -97,6 +98,11 @@ router.post(
          VALUES ($1, $2, $3) RETURNING *`,
         [req.user.id, to_user_id, content]
       );
+
+      // Send push notification to recipient
+      const sender = await db.query('SELECT business_name FROM users WHERE id = $1', [req.user.id]);
+      const senderName = sender.rows[0]?.business_name || 'Someone';
+      sendPushNotification(to_user_id, `Message from ${senderName}`, content.substring(0, 100), { type: 'message', userId: req.user.id });
 
       res.status(201).json({ message: result.rows[0] });
     } catch (err) {

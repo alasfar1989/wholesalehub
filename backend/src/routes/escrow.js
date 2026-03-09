@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const db = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { sendPushNotification } = require('../utils/pushNotifications');
 
 const router = express.Router();
 const ESCROW_FEE_PERCENT = 0.01; // 1%
@@ -53,6 +54,10 @@ router.post(
 
       await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} via ${method.toUpperCase()}`);
 
+      // Notify seller
+      const buyer = await db.query('SELECT business_name FROM users WHERE id = $1', [req.user.id]);
+      sendPushNotification(seller_id, 'New Escrow Request', `${buyer.rows[0]?.business_name} wants to escrow $${amount}`, { type: 'escrow', escrowId: result.rows[0].id });
+
       res.status(201).json({ escrow: result.rows[0] });
     } catch (err) {
       console.error('Escrow initiate error:', err);
@@ -78,6 +83,7 @@ router.post('/:id/confirm', authenticate, async (req, res) => {
     );
 
     await logEvent(req.params.id, 'seller_confirmed', req.user.id, 'Seller approved the escrow');
+    sendPushNotification(e.buyer_id, 'Escrow Approved', 'The seller approved your escrow. Please send payment.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Escrow confirm error:', err);
@@ -106,6 +112,11 @@ router.post(
       );
 
       await logEvent(req.params.id, 'proof_uploaded', req.user.id, 'Buyer uploaded wire proof');
+      // Notify admin(s) about uploaded proof
+      const admins = await db.query('SELECT id FROM users WHERE is_admin = TRUE');
+      for (const admin of admins.rows) {
+        sendPushNotification(admin.id, 'Wire Proof Uploaded', `Buyer uploaded payment proof for escrow $${e.amount}`, { type: 'escrow', escrowId: req.params.id });
+      }
       res.json({ escrow: result.rows[0] });
     } catch (err) {
       console.error('Upload proof error:', err);
@@ -131,6 +142,8 @@ router.post('/:id/payment-received', authenticate, requireAdmin, async (req, res
     );
 
     await logEvent(req.params.id, 'payment_verified', req.user.id, 'Admin verified payment received');
+    sendPushNotification(e.buyer_id, 'Payment Verified', 'Your payment has been verified. Waiting for seller to ship.', { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.seller_id, 'Payment Received', 'Payment verified by admin. Please ship the product.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Payment received error:', err);
@@ -160,6 +173,7 @@ router.post(
       );
 
       await logEvent(req.params.id, 'shipped', req.user.id, `Tracking: ${req.body.tracking_number}`);
+      sendPushNotification(e.buyer_id, 'Order Shipped', `Your order has been shipped. Tracking: ${req.body.tracking_number}`, { type: 'escrow', escrowId: req.params.id });
       res.json({ escrow: result.rows[0] });
     } catch (err) {
       console.error('Ship error:', err);
@@ -185,6 +199,7 @@ router.post('/:id/confirm-receipt', authenticate, async (req, res) => {
     );
 
     await logEvent(req.params.id, 'delivered', req.user.id, 'Buyer confirmed receipt');
+    sendPushNotification(e.seller_id, 'Delivery Confirmed', 'The buyer confirmed receipt. Awaiting admin to release payment.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Confirm receipt error:', err);
@@ -209,6 +224,8 @@ router.post('/:id/release-payment', authenticate, requireAdmin, async (req, res)
 
     await logEvent(req.params.id, 'payment_released', req.user.id,
       `Released $${e.seller_payout} to seller. Fee collected: $${e.escrow_fee}`);
+    sendPushNotification(e.seller_id, 'Payment Released', `$${e.seller_payout} has been released to you.`, { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.buyer_id, 'Escrow Completed', 'Your escrow transaction is complete.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Release payment error:', err);

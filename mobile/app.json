@@ -31,7 +31,14 @@
       "apiUrl": "https://wholesalehub-production-25ae.up.railway.app"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1a1a2e"
+        }
+      ]
     ]
   }
 }

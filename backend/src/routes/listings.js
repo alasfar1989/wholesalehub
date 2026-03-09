@@ -1,10 +1,13 @@
 const express = require('express');
 const { body, query } = require('express-validator');
+const multer = require('multer');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { uploadImage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // GET /listings - get all active listings with pagination
 router.get('/', async (req, res) => {
@@ -132,7 +135,7 @@ router.get('/mine', authenticate, async (req, res) => {
   }
 });
 
-// GET /listings/:id - get single listing
+// GET /listings/:id - get single listing with photos
 router.get('/:id', async (req, res) => {
   try {
     const result = await db.query(
@@ -147,7 +150,12 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Listing not found' });
     }
 
-    res.json({ listing: result.rows[0] });
+    const photos = await db.query(
+      'SELECT id, photo_url, sort_order FROM listing_photos WHERE listing_id = $1 ORDER BY sort_order',
+      [req.params.id]
+    );
+
+    res.json({ listing: { ...result.rows[0], photos: photos.rows } });
   } catch (err) {
     console.error('Get listing error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -273,6 +281,59 @@ router.delete('/:id', authenticate, async (req, res) => {
     res.json({ message: 'Listing deleted' });
   } catch (err) {
     console.error('Delete listing error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /listings/:id/photos - upload photos (up to 5)
+router.post('/:id/photos', authenticate, upload.array('photos', 5), async (req, res) => {
+  try {
+    const existing = await db.query('SELECT user_id FROM listings WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Listing not found' });
+    if (existing.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Not authorized' });
+
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No photos provided' });
+
+    // Check existing photo count
+    const countResult = await db.query('SELECT COUNT(*) FROM listing_photos WHERE listing_id = $1', [req.params.id]);
+    const existingCount = parseInt(countResult.rows[0].count);
+    if (existingCount + req.files.length > 5) {
+      return res.status(400).json({ error: `Can only have 5 photos total. Currently have ${existingCount}.` });
+    }
+
+    const uploaded = [];
+    for (let i = 0; i < req.files.length; i++) {
+      const { url, public_id } = await uploadImage(req.files[i].buffer);
+      const result = await db.query(
+        'INSERT INTO listing_photos (listing_id, photo_url, photo_public_id, sort_order) VALUES ($1, $2, $3, $4) RETURNING id, photo_url, sort_order',
+        [req.params.id, url, public_id, existingCount + i]
+      );
+      uploaded.push(result.rows[0]);
+    }
+
+    res.status(201).json({ photos: uploaded });
+  } catch (err) {
+    console.error('Upload photos error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /listings/:id/photos/:photoId - delete a photo
+router.delete('/:id/photos/:photoId', authenticate, async (req, res) => {
+  try {
+    const existing = await db.query('SELECT user_id FROM listings WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Listing not found' });
+    if (existing.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Not authorized' });
+
+    const photo = await db.query('SELECT photo_public_id FROM listing_photos WHERE id = $1 AND listing_id = $2', [req.params.photoId, req.params.id]);
+    if (photo.rows.length === 0) return res.status(404).json({ error: 'Photo not found' });
+
+    await deleteImage(photo.rows[0].photo_public_id);
+    await db.query('DELETE FROM listing_photos WHERE id = $1', [req.params.photoId]);
+
+    res.json({ message: 'Photo deleted' });
+  } catch (err) {
+    console.error('Delete photo error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -119,6 +119,17 @@ CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category);
 CREATE INDEX IF NOT EXISTS idx_listings_city ON listings(city);
 CREATE INDEX IF NOT EXISTS idx_listings_featured ON listings(is_featured) WHERE is_featured = TRUE;
 CREATE INDEX IF NOT EXISTS idx_listings_active ON listings(is_active) WHERE is_active = TRUE;
+-- Listing photos table
+CREATE TABLE IF NOT EXISTS listing_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  photo_url TEXT NOT NULL,
+  photo_public_id VARCHAR(255) NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_listing_photos_listing ON listing_photos(listing_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_to_user ON ratings(to_user_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_status ON ratings(status);
 CREATE INDEX IF NOT EXISTS idx_messages_to_user ON messages(to_user_id, is_read);
@@ -133,6 +144,8 @@ CREATE INDEX IF NOT EXISTS idx_escrow_events_escrow ON escrow_events(escrow_id);
 const alterMigration = `
 ALTER TABLE ratings ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'approved';
 ALTER TABLE ratings ADD COLUMN IF NOT EXISTS escrow_id UUID REFERENCES escrows(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
 `;
 
 async function runMigration() {

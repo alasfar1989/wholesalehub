@@ -53,6 +53,14 @@ class ApiService {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify(body) });
   }
 
+  sendOtp(phone) {
+    return this.request('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+  }
+
+  verifyOtp(phone, code) {
+    return this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, code }) });
+  }
+
   // Users
   getMe() {
     return this.request('/users/me');
@@ -68,6 +76,10 @@ class ApiService {
 
   updateProfile(body) {
     return this.request('/users/me', { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  updatePushToken(push_token) {
+    return this.request('/users/me/push-token', { method: 'PUT', body: JSON.stringify({ push_token }) });
   }
 
   // Listings
@@ -102,6 +114,27 @@ class ApiService {
 
   deleteListing(id) {
     return this.request(`/listings/${id}`, { method: 'DELETE' });
+  }
+
+  async uploadListingPhotos(listingId, photoUris) {
+    const formData = new FormData();
+    photoUris.forEach((uri, i) => {
+      const name = uri.split('/').pop();
+      const ext = name.split('.').pop() || 'jpg';
+      formData.append('photos', { uri, name: `photo_${i}.${ext}`, type: `image/${ext === 'png' ? 'png' : 'jpeg'}` });
+    });
+    const response = await fetch(`${API_URL}/listings/${listingId}/photos`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  }
+
+  deleteListingPhoto(listingId, photoId) {
+    return this.request(`/listings/${listingId}/photos/${photoId}`, { method: 'DELETE' });
   }
 
   // References

@@ -64,6 +64,8 @@ async function applySchemaUpdates() {
     await db.query('ALTER TABLE ratings ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT \'approved\'');
     await db.query('ALTER TABLE ratings ADD COLUMN IF NOT EXISTS escrow_id UUID');
     await db.query("ALTER TABLE escrows ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) DEFAULT 'wire'");
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE');
     console.log('Schema updates applied.');
   } catch (err) {
     console.error('Schema update error (non-fatal):', err.message);

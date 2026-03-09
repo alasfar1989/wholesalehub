@@ -113,4 +113,69 @@ router.post(
   }
 );
 
+// POST /auth/send-otp - send OTP to phone number
+router.post(
+  '/send-otp',
+  [body('phone').trim().notEmpty().withMessage('Phone is required')],
+  validate,
+  async (req, res) => {
+    try {
+      const { phone } = req.body;
+
+      // Only send if Twilio is configured
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_VERIFY_SERVICE_SID) {
+        // Skip OTP in dev mode
+        return res.json({ success: true, message: 'OTP sent (dev mode - use any code)' });
+      }
+
+      const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      await twilio.verify.v2
+        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+        .verifications.create({ to: phone, channel: 'sms' });
+
+      res.json({ success: true, message: 'OTP sent' });
+    } catch (err) {
+      console.error('Send OTP error:', err);
+      if (err.code === 60200) {
+        return res.status(400).json({ error: 'Invalid phone number format. Use +1234567890' });
+      }
+      res.status(500).json({ error: 'Failed to send OTP' });
+    }
+  }
+);
+
+// POST /auth/verify-otp - verify OTP code
+router.post(
+  '/verify-otp',
+  [
+    body('phone').trim().notEmpty().withMessage('Phone is required'),
+    body('code').trim().notEmpty().withMessage('Code is required'),
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const { phone, code } = req.body;
+
+      // Skip verification in dev mode
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_VERIFY_SERVICE_SID) {
+        return res.json({ success: true, verified: true });
+      }
+
+      const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      const verification = await twilio.verify.v2
+        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+        .verificationChecks.create({ to: phone, code });
+
+      if (verification.status === 'approved') {
+        res.json({ success: true, verified: true });
+      } else {
+        res.status(400).json({ error: 'Invalid or expired code' });
+      }
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      res.status(500).json({ error: 'Verification failed' });
+    }
+  }
+);
+
 module.exports = router;

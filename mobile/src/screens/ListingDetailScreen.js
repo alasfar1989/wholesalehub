@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, Image, Dimensions, StyleSheet, Alert, Linking } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -71,109 +71,125 @@ export default function ListingDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headerRow}>
-        <View style={[styles.badge, { backgroundColor: isWTS ? colors.wts : colors.wtb }]}>
-          <Text style={styles.badgeText}>{isWTS ? 'For Sale' : 'Want to Buy'}</Text>
-        </View>
-        {listing.is_featured && (
-          <View style={[styles.badge, { backgroundColor: colors.highlight }]}>
-            <Text style={styles.badgeText}>Featured</Text>
+      {/* Photos */}
+      {listing.photos && listing.photos.length > 0 && (
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+          {listing.photos.map((photo, i) => (
+            <Image
+              key={photo.id || i}
+              source={{ uri: photo.photo_url }}
+              style={styles.photoFull}
+              resizeMode="cover"
+            />
+          ))}
+        </ScrollView>
+      )}
+
+      <View style={styles.innerContent}>
+        <View style={styles.headerRow}>
+          <View style={[styles.badge, { backgroundColor: isWTS ? colors.wts : colors.wtb }]}>
+            <Text style={styles.badgeText}>{isWTS ? 'For Sale' : 'Want to Buy'}</Text>
           </View>
-        )}
-      </View>
-
-      <Text style={styles.title}>{listing.title}</Text>
-
-      <Text style={styles.price}>
-        {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
-      </Text>
-
-      <View style={styles.detailsGrid}>
-        <DetailItem label="Quantity" value={listing.quantity} />
-        <DetailItem label="Condition" value={listing.condition} />
-        <DetailItem label="Category" value={listing.category} />
-        <DetailItem label="City" value={listing.city} />
-      </View>
-
-      {listing.description ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{listing.description}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Posted By</Text>
-        <View style={styles.sellerCard}>
-          <Text style={styles.sellerName}>{listing.business_name}</Text>
-          <Text style={styles.sellerCity}>{listing.user_city}</Text>
-          {listing.rating_score > 0 && (
-            <Text style={styles.sellerRating}>
-              {'★'.repeat(Math.round(Number(listing.rating_score)))} {Number(listing.rating_score).toFixed(1)} ({listing.rating_count} reviews)
-            </Text>
+          {listing.is_featured && (
+            <View style={[styles.badge, { backgroundColor: colors.highlight }]}>
+              <Text style={styles.badgeText}>Featured</Text>
+            </View>
           )}
+        </View>
 
-          <View style={styles.sellerActions}>
+        <Text style={styles.title}>{listing.title}</Text>
+
+        <Text style={styles.price}>
+          {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
+        </Text>
+
+        <View style={styles.detailsGrid}>
+          <DetailItem label="Quantity" value={listing.quantity} />
+          <DetailItem label="Condition" value={listing.condition} />
+          <DetailItem label="Category" value={listing.category} />
+          <DetailItem label="City" value={listing.city} />
+        </View>
+
+        {listing.description ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.description}>{listing.description}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Posted By</Text>
+          <View style={styles.sellerCard}>
+            <Text style={styles.sellerName}>{listing.business_name}</Text>
+            <Text style={styles.sellerCity}>{listing.user_city}</Text>
+            {listing.rating_score > 0 && (
+              <Text style={styles.sellerRating}>
+                {'★'.repeat(Math.round(Number(listing.rating_score)))} {Number(listing.rating_score).toFixed(1)} ({listing.rating_count} reviews)
+              </Text>
+            )}
+
+            <View style={styles.sellerActions}>
+              <Button
+                title="View Profile"
+                variant="outline"
+                onPress={() => navigation.navigate('UserProfile', { id: listing.user_id })}
+                style={{ flex: 1, marginRight: spacing.sm }}
+              />
+              {!isOwner && (
+                <Button
+                  title="Message"
+                  onPress={() => navigation.navigate('Chat', { userId: listing.user_id, name: listing.business_name })}
+                  style={{ flex: 1 }}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+
+        {!isOwner && listing.type === 'WTS' && (
+          <Button
+            title="Start Escrow"
+            onPress={() => navigation.navigate('InitiateEscrow', {
+              sellerId: listing.user_id,
+              sellerName: listing.business_name,
+              amount: listing.price ? String(listing.price) : '',
+              description: `${listing.title} - Qty: ${listing.quantity}`,
+              listingId: listing.id,
+            })}
+            style={{ marginBottom: spacing.sm }}
+          />
+        )}
+
+        {!isOwner && listing.user_phone && (
+          <Button
+            title={`Call ${listing.user_phone}`}
+            variant="outline"
+            onPress={handleContact}
+            style={{ marginBottom: spacing.md }}
+          />
+        )}
+
+        {isOwner && (
+          <View style={styles.ownerActions}>
             <Button
-              title="View Profile"
+              title="Edit Listing"
               variant="outline"
-              onPress={() => navigation.navigate('UserProfile', { id: listing.user_id })}
+              onPress={() => navigation.navigate('CreateListing', { listing })}
               style={{ flex: 1, marginRight: spacing.sm }}
             />
-            {!isOwner && (
-              <Button
-                title="Message"
-                onPress={() => navigation.navigate('Chat', { userId: listing.user_id, name: listing.business_name })}
-                style={{ flex: 1 }}
-              />
-            )}
+            <Button
+              title="Delete"
+              variant="danger"
+              onPress={handleDelete}
+              style={{ flex: 1 }}
+            />
           </View>
-        </View>
+        )}
+
+        <Text style={styles.date}>
+          Posted {new Date(listing.created_at).toLocaleDateString()}
+        </Text>
       </View>
-
-      {!isOwner && listing.type === 'WTS' && (
-        <Button
-          title="Start Escrow"
-          onPress={() => navigation.navigate('InitiateEscrow', {
-            sellerId: listing.user_id,
-            sellerName: listing.business_name,
-            amount: listing.price ? String(listing.price) : '',
-            description: `${listing.title} - Qty: ${listing.quantity}`,
-            listingId: listing.id,
-          })}
-          style={{ marginBottom: spacing.sm }}
-        />
-      )}
-
-      {!isOwner && listing.user_phone && (
-        <Button
-          title={`Call ${listing.user_phone}`}
-          variant="outline"
-          onPress={handleContact}
-          style={{ marginBottom: spacing.md }}
-        />
-      )}
-
-      {isOwner && (
-        <View style={styles.ownerActions}>
-          <Button
-            title="Edit Listing"
-            variant="outline"
-            onPress={() => navigation.navigate('CreateListing', { listing })}
-            style={{ flex: 1, marginRight: spacing.sm }}
-          />
-          <Button
-            title="Delete"
-            variant="danger"
-            onPress={handleDelete}
-            style={{ flex: 1 }}
-          />
-        </View>
-      )}
-
-      <Text style={styles.date}>
-        Posted {new Date(listing.created_at).toLocaleDateString()}
-      </Text>
     </ScrollView>
   );
 }
@@ -193,8 +209,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  photoScroll: {
+    height: 260,
+    backgroundColor: colors.surface,
+  },
+  photoFull: {
+    width: Dimensions.get('window').width,
+    height: 260,
   },
   center: {
     flex: 1,
@@ -203,6 +226,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: colors.textSecondary,
+  },
+  innerContent: {
+    padding: spacing.md,
+    paddingTop: spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
