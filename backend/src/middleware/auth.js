@@ -10,7 +10,7 @@ async function authenticate(req, res, next) {
   try {
     const token = header.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const result = await db.query('SELECT id, phone, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, created_at FROM users WHERE id = $1', [decoded.userId]);
+    const result = await db.query('SELECT id, phone, email, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, created_at FROM users WHERE id = $1', [decoded.userId]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'User not found' });

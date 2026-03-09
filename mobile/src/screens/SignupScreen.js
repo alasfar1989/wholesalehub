@@ -13,6 +13,7 @@ export default function SignupScreen({ navigation }) {
   const [step, setStep] = useState(1); // 1 = phone + OTP, 2 = profile details
   const [form, setForm] = useState({
     phone: '',
+    email: '',
     password: '',
     business_name: '',
     city: '',
@@ -68,8 +69,13 @@ export default function SignupScreen({ navigation }) {
   }
 
   async function handleSignup() {
-    if (!form.password || !form.business_name || !form.city) {
+    if (!form.email || !form.password || !form.business_name || !form.city) {
       setError('Please fill in all required fields');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setError('Please enter a valid email address');
       return;
     }
     if (form.password.length < 6) {
@@ -157,6 +163,15 @@ export default function SignupScreen({ navigation }) {
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedText}>Phone verified: {form.phone}</Text>
             </View>
+
+            <Input
+              label="Email *"
+              placeholder="you@company.com"
+              value={form.email}
+              onChangeText={v => updateField('email', v)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
 
             <Input
               label="Password *"
