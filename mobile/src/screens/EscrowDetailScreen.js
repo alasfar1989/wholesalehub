@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Keyboard } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
@@ -80,7 +80,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
   const isAdmin = user.is_admin;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onScrollBeginDrag={Keyboard.dismiss}>
       {/* Status */}
       <View style={[styles.statusBar, { backgroundColor: STATUS_COLORS[escrow.status] }]}>
         <Text style={styles.statusText}>{STATUS_LABELS[escrow.status]}</Text>

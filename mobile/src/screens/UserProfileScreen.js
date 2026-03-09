@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Keyboard } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
-import Input from '../components/Input';
 import { colors, spacing } from '../utils/theme';
 
 export default function UserProfileScreen({ route, navigation }) {
@@ -13,9 +12,6 @@ export default function UserProfileScreen({ route, navigation }) {
   const [references, setReferences] = useState([]);
   const [ratings, setRatings] = useState([]);
   const [tab, setTab] = useState('ratings');
-  const [showRate, setShowRate] = useState(false);
-  const [rateStars, setRateStars] = useState(5);
-  const [rateComment, setRateComment] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,21 +35,6 @@ export default function UserProfileScreen({ route, navigation }) {
     }
   }
 
-  async function handleRate() {
-    if (!rateComment.trim()) {
-      Alert.alert('Error', 'Please enter feedback');
-      return;
-    }
-    try {
-      await api.rateUser({ to_user_id: id, stars: rateStars, comment: rateComment });
-      Alert.alert('Submitted', 'Your rating has been submitted for review.');
-      setShowRate(false);
-      loadProfile();
-    } catch (err) {
-      Alert.alert('Error', err.message);
-    }
-  }
-
   if (loading) {
     return <View style={styles.center}><Text>Loading...</Text></View>;
   }
@@ -65,7 +46,7 @@ export default function UserProfileScreen({ route, navigation }) {
   const isOwnProfile = currentUser?.id === id;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onScrollBeginDrag={Keyboard.dismiss}>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{profile.business_name?.charAt(0)?.toUpperCase()}</Text>
@@ -83,41 +64,11 @@ export default function UserProfileScreen({ route, navigation }) {
             <Button
               title="Message"
               onPress={() => navigation.navigate('Chat', { userId: id, name: profile.business_name })}
-              style={{ flex: 1, marginRight: spacing.sm }}
-            />
-            <Button
-              title="Rate"
-              variant="outline"
-              onPress={() => setShowRate(!showRate)}
               style={{ flex: 1 }}
             />
           </View>
         )}
       </View>
-
-      {showRate && (
-        <View style={styles.rateCard}>
-          <Text style={styles.rateTitle}>Rate this trader</Text>
-          <View style={styles.stars}>
-            {[1, 2, 3, 4, 5].map(s => (
-              <Text
-                key={s}
-                style={[styles.star, s <= rateStars && styles.starActive]}
-                onPress={() => setRateStars(s)}
-              >
-                ★
-              </Text>
-            ))}
-          </View>
-          <Input
-            placeholder="Share your experience (required)"
-            value={rateComment}
-            onChangeText={setRateComment}
-            multiline
-          />
-          <Button title="Submit Rating" onPress={handleRate} />
-        </View>
-      )}
 
       <View style={styles.tabs}>
         <TabBtn title={`Reviews (${ratings.length})`} active={tab === 'ratings'} onPress={() => setTab('ratings')} />
@@ -182,16 +133,6 @@ const styles = StyleSheet.create({
   info: { fontSize: 14, color: colors.textSecondary, marginTop: 2, textTransform: 'capitalize' },
   rating: { fontSize: 15, color: colors.star, marginTop: spacing.sm },
   actions: { flexDirection: 'row', marginTop: spacing.md, width: '100%' },
-  rateCard: {
-    backgroundColor: colors.surface,
-    margin: spacing.md,
-    padding: spacing.md,
-    borderRadius: 12,
-  },
-  rateTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.sm },
-  stars: { flexDirection: 'row', marginBottom: spacing.md },
-  star: { fontSize: 32, color: colors.border, marginRight: spacing.sm },
-  starActive: { color: colors.star },
   tabs: { flexDirection: 'row', padding: spacing.md },
   card: {
     backgroundColor: colors.surface,
