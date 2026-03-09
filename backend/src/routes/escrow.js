@@ -262,6 +262,66 @@ router.post('/:id/dispute', authenticate, async (req, res) => {
   }
 });
 
+// PUT /escrow/:id/wire-instructions - admin sets payment instructions
+router.put('/:id/wire-instructions', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { wire_instructions } = req.body;
+    const result = await db.query(
+      'UPDATE escrows SET wire_instructions = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [wire_instructions, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = result.rows[0];
+    sendPushNotification(e.buyer_id, 'Payment Instructions Updated', 'The admin has updated the payment details for your escrow.', { type: 'escrow', escrowId: req.params.id });
+
+    res.json({ escrow: result.rows[0] });
+  } catch (err) {
+    console.error('Update wire instructions error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /escrow/:id/resolve-dispute - admin resolves dispute
+router.post('/:id/resolve-dispute', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.status !== 'disputed') return res.status(400).json({ error: 'Escrow is not disputed' });
+
+    const { resolution } = req.body; // 'release' or 'refund'
+
+    if (resolution === 'release') {
+      const result = await db.query(
+        `UPDATE escrows SET status = 'completed', admin_notes = COALESCE(admin_notes, '') || $1, updated_at = NOW()
+         WHERE id = $2 RETURNING *`,
+        [`\nADMIN RESOLVED: Payment released to seller by ${req.user.business_name}`, req.params.id]
+      );
+      await logEvent(req.params.id, 'dispute_resolved_release', req.user.id, 'Admin released payment to seller');
+      sendPushNotification(e.seller_id, 'Dispute Resolved', `Payment of $${e.seller_payout} released to you.`, { type: 'escrow', escrowId: req.params.id });
+      sendPushNotification(e.buyer_id, 'Dispute Resolved', 'Admin resolved the dispute. Payment released to seller.', { type: 'escrow', escrowId: req.params.id });
+      res.json({ escrow: result.rows[0] });
+    } else if (resolution === 'refund') {
+      const result = await db.query(
+        `UPDATE escrows SET status = 'cancelled', admin_notes = COALESCE(admin_notes, '') || $1, updated_at = NOW()
+         WHERE id = $2 RETURNING *`,
+        [`\nADMIN RESOLVED: Refund to buyer by ${req.user.business_name}`, req.params.id]
+      );
+      await logEvent(req.params.id, 'dispute_resolved_refund', req.user.id, 'Admin refunded buyer');
+      sendPushNotification(e.buyer_id, 'Dispute Resolved', `Your $${e.amount} will be refunded.`, { type: 'escrow', escrowId: req.params.id });
+      sendPushNotification(e.seller_id, 'Dispute Resolved', 'Admin resolved the dispute. Buyer refunded.', { type: 'escrow', escrowId: req.params.id });
+      res.json({ escrow: result.rows[0] });
+    } else {
+      res.status(400).json({ error: 'Resolution must be "release" or "refund"' });
+    }
+  } catch (err) {
+    console.error('Resolve dispute error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // POST /escrow/:id/cancel - buyer or seller can cancel if pending
 router.post('/:id/cancel', authenticate, async (req, res) => {
   try {

@@ -41,6 +41,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
   const [rateStars, setRateStars] = useState(5);
   const [rateComment, setRateComment] = useState('');
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [wireInstructions, setWireInstructions] = useState('');
 
   useEffect(() => {
     loadEscrow();
@@ -130,15 +131,40 @@ export default function EscrowDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Buyer uploads proof */}
+        {/* Buyer sees payment instructions + uploads proof */}
         {isBuyer && escrow.status === 'pending_payment' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>
-              Wire the funds to the escrow account, then upload your proof of payment (receipt URL or description).
-            </Text>
+            {escrow.payment_method === 'usdt' ? (
+              <View style={styles.paymentInstructions}>
+                <Text style={styles.paymentTitle}>Send USDT Payment</Text>
+                <Text style={styles.paymentAmount}>${Number(escrow.amount).toLocaleString()}</Text>
+                <Text style={styles.paymentDetail}>Network: TRC-20 (Tron)</Text>
+                <Text style={[styles.paymentDetail, { fontWeight: '700', fontSize: 13 }]} selectable>
+                  {process.env.EXPO_PUBLIC_USDT_ADDRESS || 'USDT address will be provided by admin'}
+                </Text>
+                <Text style={styles.paymentNote}>
+                  Send exactly ${Number(escrow.amount).toLocaleString()} USDT. After sending, paste your transaction hash below.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.paymentInstructions}>
+                <Text style={styles.paymentTitle}>Wire Transfer Details</Text>
+                <Text style={styles.paymentAmount}>${Number(escrow.amount).toLocaleString()}</Text>
+                {escrow.wire_instructions ? (
+                  <Text style={styles.paymentDetail} selectable>{escrow.wire_instructions}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.paymentDetail}>Bank: Contact admin for wire details</Text>
+                    <Text style={styles.paymentNote}>
+                      Wire ${Number(escrow.amount).toLocaleString()} to the escrow account. Include your escrow ID as reference.
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
             <Input
-              label="Wire Proof (URL or receipt details)"
-              placeholder="Paste receipt link or describe payment"
+              label={escrow.payment_method === 'usdt' ? 'Transaction Hash / Proof' : 'Wire Proof (URL or receipt details)'}
+              placeholder={escrow.payment_method === 'usdt' ? 'Paste USDT transaction hash' : 'Paste receipt link or describe payment'}
               value={proofUrl}
               onChangeText={setProofUrl}
               multiline
@@ -148,6 +174,34 @@ export default function EscrowDetailScreen({ route, navigation }) {
               onPress={() => {
                 if (!proofUrl.trim()) { Alert.alert('Error', 'Please enter proof details'); return; }
                 performAction(() => api.uploadWireProof(id, proofUrl), 'Proof uploaded! Waiting for admin verification.');
+              }}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Admin sets payment instructions */}
+        {isAdmin && escrow.status === 'pending_payment' && !escrow.wire_proof_url && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              Set payment instructions for the buyer. They will see these details when making payment.
+            </Text>
+            <Input
+              label="Payment Instructions"
+              placeholder={escrow.payment_method === 'usdt' ? 'USDT wallet address (TRC-20)' : 'Bank name, account number, routing...'}
+              value={wireInstructions || escrow.wire_instructions || ''}
+              onChangeText={setWireInstructions}
+              multiline
+              numberOfLines={4}
+            />
+            <Button
+              title="Save Payment Instructions"
+              onPress={() => {
+                if (!wireInstructions.trim()) { Alert.alert('Error', 'Please enter payment instructions'); return; }
+                performAction(
+                  () => api.updateWireInstructions(id, wireInstructions),
+                  'Payment instructions saved and buyer notified.'
+                );
               }}
               loading={actionLoading}
             />
@@ -254,6 +308,52 @@ export default function EscrowDetailScreen({ route, navigation }) {
               }}
               loading={actionLoading}
             />
+          </View>
+        )}
+
+        {/* Admin dispute resolution */}
+        {isAdmin && escrow.status === 'disputed' && (
+          <View style={[styles.actionGroup, { marginTop: spacing.md }]}>
+            <Text style={styles.actionHint}>
+              This escrow is disputed. Review the timeline and resolve.
+            </Text>
+            {escrow.admin_notes ? (
+              <View style={styles.disputeNotes}>
+                <Text style={styles.disputeNotesLabel}>Dispute Notes:</Text>
+                <Text style={styles.disputeNotesText}>{escrow.admin_notes}</Text>
+              </View>
+            ) : null}
+            <Button
+              title="Release Payment to Seller"
+              onPress={() => {
+                Alert.alert('Resolve Dispute', `Release $${escrow.seller_payout} to ${escrow.seller_name}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Release', onPress: () => performAction(() => api.resolveDispute(id, 'release'), 'Payment released to seller.') },
+                ]);
+              }}
+              loading={actionLoading}
+            />
+            <Button
+              title="Refund Buyer"
+              variant="outline"
+              onPress={() => {
+                Alert.alert('Resolve Dispute', `Refund $${escrow.amount} to ${escrow.buyer_name}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Refund', onPress: () => performAction(() => api.resolveDispute(id, 'refund'), 'Buyer refunded. Escrow cancelled.') },
+                ]);
+              }}
+              loading={actionLoading}
+              style={{ marginTop: spacing.sm }}
+            />
+          </View>
+        )}
+
+        {/* Disputed status - non-admin */}
+        {!isAdmin && escrow.status === 'disputed' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              This escrow is under dispute. The admin is reviewing the case and will resolve it.
+            </Text>
           </View>
         )}
 
@@ -398,6 +498,55 @@ const styles = StyleSheet.create({
   },
   starActive: {
     color: colors.star,
+  },
+  paymentInstructions: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  paymentAmount: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  paymentDetail: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  paymentNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    lineHeight: 18,
+  },
+  disputeNotes: {
+    backgroundColor: '#fff3e0',
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  disputeNotesLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.warning,
+    marginBottom: spacing.xs,
+  },
+  disputeNotesText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
   },
   completedText: {
     fontSize: 14,

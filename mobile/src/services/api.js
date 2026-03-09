@@ -254,6 +254,14 @@ class ApiService {
     return this.request(`/escrow/${id}/cancel`, { method: 'POST' });
   }
 
+  updateWireInstructions(id, wire_instructions) {
+    return this.request(`/escrow/${id}/wire-instructions`, { method: 'PUT', body: JSON.stringify({ wire_instructions }) });
+  }
+
+  resolveDispute(id, resolution) {
+    return this.request(`/escrow/${id}/resolve-dispute`, { method: 'POST', body: JSON.stringify({ resolution }) });
+  }
+
   getAdminEscrows(status) {
     const query = status ? `?status=${status}` : '';
     return this.request(`/escrow/admin/all${query}`);
