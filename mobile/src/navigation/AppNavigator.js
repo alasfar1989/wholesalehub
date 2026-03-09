@@ -21,6 +21,7 @@ import AdminScreen from '../screens/AdminScreen';
 import EscrowListScreen from '../screens/EscrowListScreen';
 import InitiateEscrowScreen from '../screens/InitiateEscrowScreen';
 import EscrowDetailScreen from '../screens/EscrowDetailScreen';
+import MarkSoldScreen from '../screens/MarkSoldScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -91,6 +92,7 @@ export default function AppNavigator() {
           <Stack.Screen name="Messages" component={ConversationsScreen} options={{ title: 'Messages' }} />
           <Stack.Screen name="InitiateEscrow" component={InitiateEscrowScreen} options={{ title: 'New Escrow' }} />
           <Stack.Screen name="EscrowDetail" component={EscrowDetailScreen} options={{ title: 'Escrow Details' }} />
+          <Stack.Screen name="MarkSold" component={MarkSoldScreen} options={{ title: 'Mark as Sold' }} />
         </>
       )}
     </Stack.Navigator>

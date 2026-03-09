@@ -170,20 +170,29 @@ export default function ListingDetailScreen({ route, navigation }) {
         )}
 
         {isOwner && (
-          <View style={styles.ownerActions}>
-            <Button
-              title="Edit Listing"
-              variant="outline"
-              onPress={() => navigation.navigate('CreateListing', { listing })}
-              style={{ flex: 1, marginRight: spacing.sm }}
-            />
-            <Button
-              title="Delete"
-              variant="danger"
-              onPress={handleDelete}
-              style={{ flex: 1 }}
-            />
-          </View>
+          <>
+            {listing.is_active !== false && (
+              <Button
+                title="Mark as Sold"
+                onPress={() => navigation.navigate('MarkSold', { listing })}
+                style={{ marginBottom: spacing.sm, backgroundColor: colors.success }}
+              />
+            )}
+            <View style={styles.ownerActions}>
+              <Button
+                title="Edit Listing"
+                variant="outline"
+                onPress={() => navigation.navigate('CreateListing', { listing })}
+                style={{ flex: 1, marginRight: spacing.sm }}
+              />
+              <Button
+                title="Delete"
+                variant="danger"
+                onPress={handleDelete}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </>
         )}
 
         <Text style={styles.date}>

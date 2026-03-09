@@ -262,6 +262,19 @@ class ApiService {
     return this.request(`/escrow/${id}/resolve-dispute`, { method: 'POST', body: JSON.stringify({ resolution }) });
   }
 
+  // Deals
+  createDeal(body) {
+    return this.request('/deals', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  getPendingReviews() {
+    return this.request('/deals/pending-reviews');
+  }
+
+  rateDeal(dealId, body) {
+    return this.request(`/deals/${dealId}/rate`, { method: 'POST', body: JSON.stringify(body) });
+  }
+
   getAdminEscrows(status) {
     const query = status ? `?status=${status}` : '';
     return this.request(`/escrow/admin/all${query}`);

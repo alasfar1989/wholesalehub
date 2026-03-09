@@ -13,6 +13,7 @@ const ratingRoutes = require('./routes/ratings');
 const messageRoutes = require('./routes/messages');
 const adminRoutes = require('./routes/admin');
 const escrowRoutes = require('./routes/escrow');
+const dealRoutes = require('./routes/deals');
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/ratings', ratingRoutes);
 app.use('/messages', messageRoutes);
 app.use('/admin', adminRoutes);
 app.use('/escrow', escrowRoutes);
+app.use('/deals', dealRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -67,6 +69,13 @@ async function applySchemaUpdates() {
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)');
+    await db.query(`CREATE TABLE IF NOT EXISTS deals (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
+      seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )`);
     console.log('Schema updates applied.');
   } catch (err) {
     console.error('Schema update error (non-fatal):', err.message);
