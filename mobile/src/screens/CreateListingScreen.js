@@ -274,7 +274,7 @@ export default function CreateListingScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: spacing.xl },
+  content: { padding: spacing.md, paddingBottom: 120 },
   heading: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   label: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: spacing.sm },
   photoRow: { flexDirection: 'row', marginBottom: spacing.md },
