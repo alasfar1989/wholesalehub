@@ -171,6 +171,33 @@ export default function ListingDetailScreen({ route, navigation }) {
 
         {isOwner && (
           <>
+            {listing.is_active !== false && !listing.is_featured && (
+              <Button
+                title="Feature This Listing - $2.99/day"
+                onPress={() => {
+                  Alert.alert(
+                    'Feature Listing',
+                    'Your listing will appear at the top of the feed for 24 hours.\n\nCost: $2.99\nLimit: 3 per type, 1 per user per day',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Feature It',
+                        onPress: async () => {
+                          try {
+                            const result = await api.featureListing(listing.id);
+                            Alert.alert('Featured!', result.message);
+                            loadListing();
+                          } catch (err) {
+                            Alert.alert('Error', err.message);
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={{ marginBottom: spacing.sm, backgroundColor: colors.highlight }}
+              />
+            )}
             {listing.is_active !== false && (
               <Button
                 title="Mark as Sold"

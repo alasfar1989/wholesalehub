@@ -96,6 +96,14 @@ class ApiService {
     return this.request(`/listings/search?${query}`);
   }
 
+  getFeaturedSlots() {
+    return this.request('/listings/featured-slots');
+  }
+
+  featureListing(id) {
+    return this.request(`/listings/${id}/feature`, { method: 'POST' });
+  }
+
   getListing(id) {
     return this.request(`/listings/${id}`);
   }

@@ -45,19 +45,33 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /listings/featured - get featured listings
+// GET /listings/featured - get featured listings (active slots only)
 router.get('/featured', async (req, res) => {
   try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Unfeatured expired slots
+    await db.query(
+      `UPDATE listings SET is_featured = FALSE
+       WHERE is_featured = TRUE AND id NOT IN (
+         SELECT listing_id FROM featured_slots WHERE start_date <= $1 AND end_date > $1
+       )`,
+      [today]
+    );
+
     const result = await db.query(
       `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone
        FROM listings l
        JOIN users u ON l.user_id = u.id
-       WHERE l.is_featured = TRUE AND l.is_active = TRUE AND u.is_suspended = FALSE
-       ORDER BY l.type, l.created_at DESC`
+       JOIN featured_slots fs ON fs.listing_id = l.id
+       WHERE l.is_active = TRUE AND u.is_suspended = FALSE
+         AND fs.start_date <= $1 AND fs.end_date > $1
+       ORDER BY l.type, fs.created_at DESC`,
+      [today]
     );
 
-    const wts = result.rows.filter(l => l.type === 'WTS');
-    const wtb = result.rows.filter(l => l.type === 'WTB');
+    const wts = result.rows.filter(l => l.type === 'WTS').slice(0, 3);
+    const wtb = result.rows.filter(l => l.type === 'WTB').slice(0, 3);
 
     res.json({ featured: { wts, wtb } });
   } catch (err) {
@@ -314,6 +328,85 @@ router.post('/:id/photos', authenticate, upload.array('photos', 5), async (req, 
     res.status(201).json({ photos: uploaded });
   } catch (err) {
     console.error('Upload photos error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /listings/featured-slots - check today's slot availability
+router.get('/featured-slots', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const result = await db.query(
+      `SELECT l.type, COUNT(*) as count
+       FROM featured_slots fs
+       JOIN listings l ON fs.listing_id = l.id
+       WHERE fs.start_date <= $1 AND fs.end_date > $1
+       GROUP BY l.type`,
+      [today]
+    );
+
+    const slots = { WTS: 0, WTB: 0 };
+    result.rows.forEach(r => { slots[r.type] = parseInt(r.count); });
+
+    res.json({
+      slots: {
+        WTS: { used: slots.WTS, available: 3 - slots.WTS },
+        WTB: { used: slots.WTB, available: 3 - slots.WTB },
+      },
+      price: 2.99,
+    });
+  } catch (err) {
+    console.error('Featured slots error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /listings/:id/feature - purchase a featured slot ($2.99/day)
+router.post('/:id/feature', authenticate, async (req, res) => {
+  try {
+    const listing = await db.query('SELECT * FROM listings WHERE id = $1', [req.params.id]);
+    if (listing.rows.length === 0) return res.status(404).json({ error: 'Listing not found' });
+    if (listing.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Not your listing' });
+    if (!listing.rows[0].is_active) return res.status(400).json({ error: 'Listing is not active' });
+
+    const today = new Date().toISOString().split('T')[0];
+    const type = listing.rows[0].type;
+
+    // Check if user already has a featured listing today
+    const userSlot = await db.query(
+      `SELECT fs.id FROM featured_slots fs
+       JOIN listings l ON fs.listing_id = l.id
+       WHERE l.user_id = $1 AND fs.start_date <= $2 AND fs.end_date > $2`,
+      [req.user.id, today]
+    );
+    if (userSlot.rows.length > 0) {
+      return res.status(400).json({ error: 'You already have a featured listing today. Limit is 1 per day.' });
+    }
+
+    // Check type slot availability (max 3 per type per day)
+    const typeCount = await db.query(
+      `SELECT COUNT(*) FROM featured_slots fs
+       JOIN listings l ON fs.listing_id = l.id
+       WHERE l.type = $1 AND fs.start_date <= $2 AND fs.end_date > $2`,
+      [type, today]
+    );
+    if (parseInt(typeCount.rows[0].count) >= 3) {
+      return res.status(400).json({ error: `All 3 featured ${type} slots are taken for today. Try again tomorrow.` });
+    }
+
+    // Create featured slot (1 day)
+    await db.query(
+      `INSERT INTO featured_slots (listing_id, start_date, end_date, cost)
+       VALUES ($1, $2, $2 + INTERVAL '1 day', 2.99)`,
+      [req.params.id, today]
+    );
+
+    // Mark listing as featured
+    await db.query('UPDATE listings SET is_featured = TRUE, updated_at = NOW() WHERE id = $1', [req.params.id]);
+
+    res.json({ success: true, message: `Listing featured for today! Cost: $2.99` });
+  } catch (err) {
+    console.error('Feature listing error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
