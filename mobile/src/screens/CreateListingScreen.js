@@ -102,8 +102,30 @@ export default function CreateListingScreen({ route, navigation }) {
         setUploading(false);
       }
 
-      Alert.alert('Success', isEdit ? 'Listing updated' : 'Listing created');
-      navigation.goBack();
+      if (isEdit) {
+        Alert.alert('Success', 'Listing updated');
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          'Listing Posted!',
+          'Want to feature it at the top of the feed for $2.99/day?',
+          [
+            { text: 'No Thanks', onPress: () => navigation.goBack() },
+            {
+              text: 'Feature It - $2.99',
+              onPress: async () => {
+                try {
+                  await api.featureListing(listingId);
+                  Alert.alert('Featured!', 'Your listing is now featured for 24 hours.');
+                } catch (err) {
+                  Alert.alert('Note', err.message);
+                }
+                navigation.goBack();
+              },
+            },
+          ]
+        );
+      }
     } catch (err) {
       Alert.alert('Error', err.message);
     } finally {
