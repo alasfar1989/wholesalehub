@@ -6,7 +6,7 @@ const validate = require('../middleware/validate');
 const { sendPushNotification } = require('../utils/pushNotifications');
 
 const router = express.Router();
-const ESCROW_FEE_PERCENT = 0.01; // 1%
+const ESCROW_FEE_PERCENT = 0.005; // 0.5%
 
 // Helper to log escrow events
 async function logEvent(escrowId, action, userId, details) {

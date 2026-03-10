@@ -27,7 +27,6 @@ router.post(
   '/signup',
   [
     body('phone').trim().notEmpty().withMessage('Phone is required'),
-    body('email').trim().isEmail().withMessage('Valid email is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('business_name').trim().notEmpty().withMessage('Business name is required'),
     body('city').trim().notEmpty().withMessage('City is required'),
@@ -36,26 +35,21 @@ router.post(
   validate,
   async (req, res) => {
     try {
-      const { phone, email, password, business_name, city, category } = req.body;
+      const { phone, password, business_name, city, category } = req.body;
 
       const existing = await db.query('SELECT id FROM users WHERE phone = $1', [phone]);
       if (existing.rows.length > 0) {
         return res.status(409).json({ error: 'Phone number already registered' });
       }
 
-      const emailExists = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
-      if (emailExists.rows.length > 0) {
-        return res.status(409).json({ error: 'Email already registered' });
-      }
-
       const password_hash = await bcrypt.hash(password, 12);
       const isAdmin = isAdminPhone(phone);
 
       const result = await db.query(
-        `INSERT INTO users (phone, email, password_hash, business_name, city, category, is_admin)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, phone, email, business_name, city, category, is_admin, created_at`,
-        [phone, email.toLowerCase(), password_hash, business_name, city, category || 'electronics', isAdmin]
+        `INSERT INTO users (phone, password_hash, business_name, city, category, is_admin)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, phone, business_name, city, category, is_admin, created_at`,
+        [phone, password_hash, business_name, city, category || 'electronics', isAdmin]
       );
 
       const user = result.rows[0];
