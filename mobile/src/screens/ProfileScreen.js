@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +36,23 @@ export default function ProfileScreen({ navigation }) {
     }
   }
 
+  async function handleAvatarPick() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      try {
+        await api.uploadAvatar(result.assets[0].uri);
+        await refreshUser();
+      } catch (err) {
+        Alert.alert('Error', err.message);
+      }
+    }
+  }
+
   function handleLogout() {
     Alert.alert('Logout', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
@@ -45,9 +63,16 @@ export default function ProfileScreen({ navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.business_name?.charAt(0)?.toUpperCase()}</Text>
-        </View>
+        <TouchableOpacity onPress={handleAvatarPick} style={styles.avatarWrap}>
+          {user?.avatar_url ? (
+            <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{user?.business_name?.charAt(0)?.toUpperCase()}</Text>
+            </View>
+          )}
+          <View style={styles.avatarBadge}><Text style={styles.avatarBadgeText}>Edit</Text></View>
+        </TouchableOpacity>
         <Text style={styles.name}>{user?.business_name}</Text>
         <Text style={styles.info}>{user?.city} - {user?.category}</Text>
         <Text style={styles.phone}>{user?.phone}</Text>
@@ -142,19 +167,43 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: spacing.sm,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   avatarText: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '700',
     color: '#fff',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  avatarBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   name: {
     fontSize: 22,

@@ -76,7 +76,7 @@ router.post(
       const { phone, password } = req.body;
 
       const result = await db.query(
-        'SELECT id, phone, email, password_hash, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, created_at FROM users WHERE phone = $1',
+        'SELECT id, phone, email, avatar_url, password_hash, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, created_at FROM users WHERE phone = $1',
         [phone]
       );
 

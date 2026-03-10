@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
 
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
        FROM listings l
        JOIN users u ON l.user_id = u.id
        WHERE l.is_active = TRUE AND u.is_suspended = FALSE
@@ -60,7 +60,7 @@ router.get('/featured', async (req, res) => {
     );
 
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
        FROM listings l
        JOIN users u ON l.user_id = u.id
        JOIN featured_slots fs ON fs.listing_id = l.id
@@ -119,7 +119,7 @@ router.get('/search', async (req, res) => {
     values.push(offset);
 
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
        FROM listings l
        JOIN users u ON l.user_id = u.id
        WHERE ${whereClause}
@@ -153,7 +153,7 @@ router.get('/mine', authenticate, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.rating_count, u.phone as user_phone, u.bio as user_bio
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.rating_count, u.phone as user_phone, u.bio as user_bio, u.avatar_url as user_avatar
        FROM listings l
        JOIN users u ON l.user_id = u.id
        WHERE l.id = $1`,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Keyboard } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Keyboard, Image } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -48,9 +48,13 @@ export default function UserProfileScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onScrollBeginDrag={Keyboard.dismiss}>
       <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile.business_name?.charAt(0)?.toUpperCase()}</Text>
-        </View>
+        {profile.avatar_url ? (
+          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{profile.business_name?.charAt(0)?.toUpperCase()}</Text>
+          </View>
+        )}
         <Text style={styles.name}>{profile.business_name}</Text>
         <Text style={styles.info}>{profile.city} - {profile.category}</Text>
         {profile.rating_score > 0 && (
@@ -122,13 +126,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  avatarImage: {
+    width: 80, height: 80, borderRadius: 40,
+    marginBottom: spacing.sm,
+  },
   avatar: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 80, height: 80, borderRadius: 40,
     backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  avatarText: { fontSize: 28, fontWeight: '700', color: '#fff' },
+  avatarText: { fontSize: 30, fontWeight: '700', color: '#fff' },
   name: { fontSize: 22, fontWeight: '700', color: colors.text },
   info: { fontSize: 14, color: colors.textSecondary, marginTop: 2, textTransform: 'capitalize' },
   rating: { fontSize: 15, color: colors.star, marginTop: spacing.sm },

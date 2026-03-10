@@ -69,6 +69,7 @@ async function applySchemaUpdates() {
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT');
     await db.query(`CREATE TABLE IF NOT EXISTS deals (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,

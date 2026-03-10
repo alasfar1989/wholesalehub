@@ -1,10 +1,13 @@
 const express = require('express');
 const { body } = require('express-validator');
+const multer = require('multer');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const validate = require('../middleware/validate');
+const { uploadImage } = require('../utils/cloudinary');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // GET /users/me - get current user profile
 router.get('/me', authenticate, (req, res) => {
@@ -110,6 +113,21 @@ router.put(
     }
   }
 );
+
+// POST /users/me/avatar - upload profile photo
+router.post('/me/avatar', authenticate, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image provided' });
+
+    const { url } = await uploadImage(req.file.buffer, 'wholesalehub/avatars');
+    await db.query('UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2', [url, req.user.id]);
+
+    res.json({ avatar_url: url });
+  } catch (err) {
+    console.error('Upload avatar error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // PUT /users/me/push-token - register push notification token
 router.put('/me/push-token', authenticate, async (req, res) => {

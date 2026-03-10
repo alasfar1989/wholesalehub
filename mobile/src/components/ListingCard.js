@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { colors, spacing } from '../utils/theme';
 
 export default function ListingCard({ listing, onPress }) {
@@ -34,7 +34,16 @@ export default function ListingCard({ listing, onPress }) {
 
       {listing.business_name && (
         <View style={styles.seller}>
-          <Text style={styles.sellerName}>{listing.business_name}</Text>
+          <View style={styles.sellerInfo}>
+            {listing.user_avatar ? (
+              <Image source={{ uri: listing.user_avatar }} style={styles.sellerAvatar} />
+            ) : (
+              <View style={styles.sellerAvatarFallback}>
+                <Text style={styles.sellerAvatarText}>{listing.business_name.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            <Text style={styles.sellerName}>{listing.business_name}</Text>
+          </View>
           {listing.rating_score > 0 && (
             <Text style={styles.rating}>
               {'★'.repeat(Math.round(Number(listing.rating_score)))} {Number(listing.rating_score).toFixed(1)}
@@ -119,6 +128,31 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
+  },
+  sellerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sellerAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: spacing.xs,
+  },
+  sellerAvatarFallback: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.xs,
+  },
+  sellerAvatarText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
   },
   sellerName: {
     fontSize: 13,
