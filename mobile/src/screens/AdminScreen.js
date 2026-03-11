@@ -255,6 +255,7 @@ export default function AdminScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>{item.business_name}</Text>
                 <Text style={styles.itemSub}>{item.phone} - {item.city}</Text>
+                {item.email && <Text style={styles.itemSub}>{item.email}</Text>}
                 <Text style={styles.itemSub}>Referred by: {item.referrer_name || 'Unknown'} ({item.referral_phone})</Text>
                 <Text style={styles.itemSub}>{new Date(item.created_at).toLocaleDateString()}</Text>
               </View>
@@ -291,6 +292,7 @@ export default function AdminScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>{item.business_name}</Text>
                 <Text style={styles.itemSub}>{item.phone} - {item.city}</Text>
+                {item.email && <Text style={styles.itemSub}>{item.email}</Text>}
                 {item.is_suspended && <Text style={styles.suspended}>SUSPENDED</Text>}
               </View>
               <Button

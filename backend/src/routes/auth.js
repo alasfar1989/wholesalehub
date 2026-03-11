@@ -39,13 +39,14 @@ router.post(
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('business_name').trim().notEmpty().withMessage('Business name is required'),
     body('city').trim().notEmpty().withMessage('City is required'),
+    body('email').trim().isEmail().withMessage('Valid email is required'),
     body('category').trim().optional(),
     body('referral_phone').trim().notEmpty().withMessage('Referral phone is required'),
   ],
   validate,
   async (req, res) => {
     try {
-      const { phone, password, business_name, city, category, referral_phone } = req.body;
+      const { phone, password, business_name, email, city, category, referral_phone } = req.body;
 
       const phoneDigits = normalizePhone(phone).slice(-10);
       const existing = await db.query(
@@ -71,10 +72,10 @@ router.post(
       const isApproved = isAdmin; // Admin auto-approved
 
       const result = await db.query(
-        `INSERT INTO users (phone, password_hash, business_name, city, category, is_admin, is_approved, referred_by, referral_phone)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING id, phone, business_name, city, category, is_admin, is_approved, referral_phone, created_at`,
-        [phone, password_hash, business_name, city, category || 'electronics', isAdmin, isApproved, referrer.rows[0].id, referral_phone]
+        `INSERT INTO users (phone, password_hash, business_name, email, city, category, is_admin, is_approved, referred_by, referral_phone)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id, phone, email, business_name, city, category, is_admin, is_approved, referral_phone, created_at`,
+        [phone, password_hash, business_name, email, city, category || 'electronics', isAdmin, isApproved, referrer.rows[0].id, referral_phone]
       );
 
       const user = result.rows[0];

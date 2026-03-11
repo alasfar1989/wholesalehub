@@ -15,6 +15,7 @@ export default function SignupScreen({ navigation }) {
     phone: '',
     password: '',
     business_name: '',
+    email: '',
     city: '',
     category: 'electronics',
     referral_phone: '',
@@ -68,8 +69,8 @@ export default function SignupScreen({ navigation }) {
   }
 
   async function handleSignup() {
-    if (!form.password || !form.business_name || !form.city || !form.referral_phone) {
-      setError('Please fill in all required fields including referral');
+    if (!form.password || !form.business_name || !form.email || !form.city || !form.referral_phone) {
+      setError('Please fill in all required fields');
       return;
     }
     if (form.password.length < 6) {
@@ -159,18 +160,19 @@ export default function SignupScreen({ navigation }) {
             </View>
 
             <Input
-              label="Password *"
-              placeholder="Min 6 characters"
-              value={form.password}
-              onChangeText={v => updateField('password', v)}
-              secureTextEntry
-            />
-
-            <Input
               label="Business Name *"
               placeholder="Your company name"
               value={form.business_name}
               onChangeText={v => updateField('business_name', v)}
+            />
+
+            <Input
+              label="Email *"
+              placeholder="you@company.com"
+              value={form.email}
+              onChangeText={v => updateField('email', v)}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
 
             <Input
@@ -201,6 +203,14 @@ export default function SignupScreen({ navigation }) {
                 />
               ))}
             </ScrollView>
+
+            <Input
+              label="Password *"
+              placeholder="Min 6 characters"
+              value={form.password}
+              onChangeText={v => updateField('password', v)}
+              secureTextEntry
+            />
 
             <Button
               title="Create Account"

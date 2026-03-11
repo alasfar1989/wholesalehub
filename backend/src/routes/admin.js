@@ -48,7 +48,7 @@ router.get('/dashboard', async (req, res) => {
 router.get('/pending-users', async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT u.id, u.phone, u.business_name, u.city, u.category, u.referral_phone, u.created_at,
+      `SELECT u.id, u.phone, u.email, u.business_name, u.city, u.category, u.referral_phone, u.created_at,
               r.business_name as referrer_name, r.phone as referrer_phone_actual
        FROM users u
        LEFT JOIN users r ON u.referred_by = r.id
@@ -104,7 +104,7 @@ router.put('/users/:id/reject', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, phone, business_name, city, category, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, phone, email, business_name, city, category, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users ORDER BY created_at DESC'
     );
     res.json({ users: result.rows });
   } catch (err) {
