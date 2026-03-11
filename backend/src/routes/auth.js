@@ -22,7 +22,7 @@ function formatPhoneE164(phone) {
 }
 
 function isAdminPhone(phone) {
-  return normalizePhone(phone) === normalizePhone(process.env.ADMIN_PHONE);
+  return normalizePhone(phone).slice(-10) === normalizePhone(process.env.ADMIN_PHONE).slice(-10);
 }
 
 function generateToken(userId) {
@@ -47,7 +47,11 @@ router.post(
     try {
       const { phone, password, business_name, city, category, referral_phone } = req.body;
 
-      const existing = await db.query('SELECT id FROM users WHERE phone = $1', [phone]);
+      const phoneDigits = normalizePhone(phone).slice(-10);
+      const existing = await db.query(
+        "SELECT id FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1",
+        [phoneDigits]
+      );
       if (existing.rows.length > 0) {
         return res.status(409).json({ error: 'Phone number already registered' });
       }
@@ -96,10 +100,11 @@ router.post(
   async (req, res) => {
     try {
       const { phone, password } = req.body;
+      const phoneDigits = normalizePhone(phone).slice(-10);
 
       const result = await db.query(
-        'SELECT id, phone, email, avatar_url, password_hash, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users WHERE phone = $1',
-        [phone]
+        "SELECT id, phone, email, avatar_url, password_hash, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1",
+        [phoneDigits]
       );
 
       if (result.rows.length === 0) {
