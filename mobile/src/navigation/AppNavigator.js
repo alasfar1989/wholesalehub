@@ -8,6 +8,7 @@ import PendingApprovalScreen from '../screens/PendingApprovalScreen';
 
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import CreateListingScreen from '../screens/CreateListingScreen';
@@ -80,6 +81,7 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
         </>
       ) : !user.is_approved ? (
         <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} options={{ headerShown: false }} />

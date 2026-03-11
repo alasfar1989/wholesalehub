@@ -62,6 +62,13 @@ export default function LoginScreen({ navigation }) {
           <Button title="Log In" onPress={handleLogin} loading={loading} />
 
           <Button
+            title="Forgot Password?"
+            variant="outline"
+            onPress={() => navigation.navigate('ForgotPassword')}
+            style={{ marginTop: spacing.sm }}
+          />
+
+          <Button
             title="Create Account"
             variant="outline"
             onPress={() => navigation.navigate('Signup')}

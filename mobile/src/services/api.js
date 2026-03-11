@@ -61,6 +61,10 @@ class ApiService {
     return this.request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, code }) });
   }
 
+  resetPassword(phone, code, new_password) {
+    return this.request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ phone, code, new_password }) });
+  }
+
   // Users
   getMe() {
     return this.request('/users/me');

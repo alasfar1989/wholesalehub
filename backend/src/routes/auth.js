@@ -214,4 +214,52 @@ router.post(
   }
 );
 
+// POST /auth/reset-password - reset password after OTP verification
+router.post(
+  '/reset-password',
+  [
+    body('phone').trim().notEmpty().withMessage('Phone is required'),
+    body('code').trim().notEmpty().withMessage('Verification code is required'),
+    body('new_password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const phone = formatPhoneE164(req.body.phone);
+      const { code, new_password } = req.body;
+
+      // Verify OTP first
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_VERIFY_SERVICE_SID) {
+        const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        const verification = await twilio.verify.v2
+          .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+          .verificationChecks.create({ to: phone, code });
+
+        if (verification.status !== 'approved') {
+          return res.status(400).json({ error: 'Invalid or expired code' });
+        }
+      }
+
+      // Find user by phone
+      const phoneDigits = normalizePhone(req.body.phone).slice(-10);
+      const user = await db.query(
+        "SELECT id FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1",
+        [phoneDigits]
+      );
+
+      if (user.rows.length === 0) {
+        return res.status(404).json({ error: 'No account found with this phone number' });
+      }
+
+      const password_hash = await bcrypt.hash(new_password, 12);
+      await db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [password_hash, user.rows[0].id]);
+
+      res.json({ success: true, message: 'Password reset successfully' });
+    } catch (err) {
+      console.error('Reset password error:', err);
+      res.status(500).json({ error: 'Failed to reset password' });
+    }
+  }
+);
+
 module.exports = router;
