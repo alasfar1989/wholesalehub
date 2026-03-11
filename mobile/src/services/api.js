@@ -216,6 +216,18 @@ class ApiService {
     return this.request('/admin/users');
   }
 
+  getPendingUsers() {
+    return this.request('/admin/pending-users');
+  }
+
+  approveUser(userId) {
+    return this.request(`/admin/users/${userId}/approve`, { method: 'PUT' });
+  }
+
+  rejectUser(userId) {
+    return this.request(`/admin/users/${userId}/reject`, { method: 'PUT' });
+  }
+
   toggleSuspend(userId) {
     return this.request(`/admin/users/${userId}/suspend`, { method: 'PUT' });
   }

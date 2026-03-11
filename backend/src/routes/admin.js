@@ -13,7 +13,7 @@ router.use(authenticate, requireAdmin);
 router.get('/dashboard', async (req, res) => {
   try {
     const [users, listings, featured, ratings, pendingRatings, escrows] = await Promise.all([
-      db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_suspended) as suspended FROM users'),
+      db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_suspended) as suspended, COUNT(*) FILTER (WHERE is_approved = FALSE) as pending_approval FROM users'),
       db.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active) as active, COUNT(*) FILTER (WHERE type = \'WTS\') as wts, COUNT(*) FILTER (WHERE type = \'WTB\') as wtb FROM listings'),
       db.query('SELECT COUNT(*) as total FROM listings WHERE is_featured = TRUE AND is_active = TRUE'),
       db.query("SELECT COUNT(*) as total, AVG(stars)::DECIMAL(3,2) as avg FROM ratings WHERE status = 'approved'"),
@@ -44,11 +44,67 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+// GET /admin/pending-users - list users awaiting approval
+router.get('/pending-users', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT u.id, u.phone, u.business_name, u.city, u.category, u.referral_phone, u.created_at,
+              r.business_name as referrer_name, r.phone as referrer_phone_actual
+       FROM users u
+       LEFT JOIN users r ON u.referred_by = r.id
+       WHERE u.is_approved = FALSE AND u.is_suspended = FALSE
+       ORDER BY u.created_at DESC`
+    );
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.error('Pending users error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /admin/users/:id/approve - approve a user
+router.put('/users/:id/approve', async (req, res) => {
+  try {
+    const result = await db.query(
+      'UPDATE users SET is_approved = TRUE, updated_at = NOW() WHERE id = $1 RETURNING id, business_name, is_approved',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Send push notification to the approved user
+    try {
+      const { sendPushNotification } = require('../utils/pushNotifications');
+      await sendPushNotification(req.params.id, 'Account Approved!', 'Welcome to WholesaleHub! Your account has been approved.');
+    } catch {}
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    console.error('Approve user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /admin/users/:id/reject - reject (delete) a pending user
+router.put('/users/:id/reject', async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM users WHERE id = $1 AND is_approved = FALSE RETURNING id', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or already approved' });
+    }
+    res.json({ message: 'User rejected and removed' });
+  } catch (err) {
+    console.error('Reject user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /admin/users - list all users
 router.get('/users', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, phone, business_name, city, category, rating_score, rating_count, is_suspended, is_admin, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, phone, business_name, city, category, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users ORDER BY created_at DESC'
     );
     res.json({ users: result.rows });
   } catch (err) {

@@ -14,6 +14,7 @@ export default function AdminScreen({ navigation }) {
   const [escrows, setEscrows] = useState([]);
   const [escrowRevenue, setEscrowRevenue] = useState(null);
   const [pendingRatings, setPendingRatings] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -88,6 +89,52 @@ export default function AdminScreen({ navigation }) {
     }
   }
 
+  async function loadPendingUsers() {
+    try {
+      const data = await api.getPendingUsers();
+      setPendingUsers(data.users);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleApproveUser(id, name) {
+    Alert.alert('Approve User', `Approve ${name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Approve',
+        onPress: async () => {
+          try {
+            await api.approveUser(id);
+            loadPendingUsers();
+            loadDashboard();
+          } catch (err) {
+            Alert.alert('Error', err.message);
+          }
+        },
+      },
+    ]);
+  }
+
+  async function handleRejectUser(id, name) {
+    Alert.alert('Reject User', `Reject and remove ${name}? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reject',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.rejectUser(id);
+            loadPendingUsers();
+            loadDashboard();
+          } catch (err) {
+            Alert.alert('Error', err.message);
+          }
+        },
+      },
+    ]);
+  }
+
   async function loadPendingRatings() {
     try {
       const data = await api.getPendingRatings();
@@ -128,6 +175,7 @@ export default function AdminScreen({ navigation }) {
 
   function switchTab(t) {
     setTab(t);
+    if (t === 'approvals') loadPendingUsers();
     if (t === 'users') loadUsers();
     if (t === 'listings') loadListings();
     if (t === 'escrows') loadEscrows();
@@ -142,7 +190,7 @@ export default function AdminScreen({ navigation }) {
         style={styles.tabBar}
         contentContainerStyle={styles.tabBarContent}
       >
-        {['dashboard', 'users', 'listings', 'escrows', 'ratings'].map(t => (
+        {['dashboard', 'approvals', 'users', 'listings', 'escrows', 'ratings'].map(t => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, tab === t && styles.tabActive]}
@@ -166,6 +214,9 @@ export default function AdminScreen({ navigation }) {
               <View style={styles.statsGrid}>
                 <StatCard label="Total Users" value={dashboard.users.total} />
                 <StatCard label="Suspended" value={dashboard.users.suspended} color={colors.error} />
+                {Number(dashboard.users.pending_approval) > 0 && (
+                  <StatCard label="Pending Approval" value={dashboard.users.pending_approval} color={colors.warning} />
+                )}
                 <StatCard label="Total Listings" value={dashboard.listings.total} />
                 <StatCard label="Active" value={dashboard.listings.active} color={colors.success} />
                 <StatCard label="WTS" value={dashboard.listings.wts} color={colors.wts} />
@@ -193,6 +244,42 @@ export default function AdminScreen({ navigation }) {
             </>
           )}
         </ScrollView>
+      )}
+
+      {tab === 'approvals' && (
+        <FlatList
+          data={pendingUsers}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.listItem}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemTitle}>{item.business_name}</Text>
+                <Text style={styles.itemSub}>{item.phone} - {item.city}</Text>
+                <Text style={styles.itemSub}>Referred by: {item.referrer_name || 'Unknown'} ({item.referral_phone})</Text>
+                <Text style={styles.itemSub}>{new Date(item.created_at).toLocaleDateString()}</Text>
+              </View>
+              <View style={{ gap: spacing.xs }}>
+                <Button
+                  title="Approve"
+                  onPress={() => handleApproveUser(item.id, item.business_name)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+                <Button
+                  title="Reject"
+                  variant="danger"
+                  onPress={() => handleRejectUser(item.id, item.business_name)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No pending approvals</Text>
+          }
+          contentContainerStyle={styles.listContent}
+        />
       )}
 
       {tab === 'users' && (

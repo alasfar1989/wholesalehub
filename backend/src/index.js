@@ -91,6 +91,11 @@ async function applySchemaUpdates() {
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id)');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_phone TEXT');
+    // Auto-approve existing users who don't have referral (pre-referral system)
+    await db.query('UPDATE users SET is_approved = TRUE WHERE referral_phone IS NULL AND is_approved = FALSE');
     await db.query(`CREATE TABLE IF NOT EXISTS deals (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,

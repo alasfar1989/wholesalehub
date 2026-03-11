@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../utils/theme';
+import PendingApprovalScreen from '../screens/PendingApprovalScreen';
 
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
@@ -80,6 +81,8 @@ export default function AppNavigator() {
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
         </>
+      ) : !user.is_approved ? (
+        <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} options={{ headerShown: false }} />
       ) : (
         <>
           <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />

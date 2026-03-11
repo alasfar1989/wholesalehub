@@ -31,28 +31,37 @@ router.post(
     body('business_name').trim().notEmpty().withMessage('Business name is required'),
     body('city').trim().notEmpty().withMessage('City is required'),
     body('category').trim().optional(),
+    body('referral_phone').trim().notEmpty().withMessage('Referral phone is required'),
   ],
   validate,
   async (req, res) => {
     try {
-      const { phone, password, business_name, city, category } = req.body;
+      const { phone, password, business_name, city, category, referral_phone } = req.body;
 
       const existing = await db.query('SELECT id FROM users WHERE phone = $1', [phone]);
       if (existing.rows.length > 0) {
         return res.status(409).json({ error: 'Phone number already registered' });
       }
 
+      // Validate referral phone belongs to an existing user
+      const referrer = await db.query('SELECT id, business_name FROM users WHERE phone = $1', [referral_phone]);
+      if (referrer.rows.length === 0) {
+        return res.status(400).json({ error: 'Referral phone number is not registered. Please enter a valid referral.' });
+      }
+
       const password_hash = await bcrypt.hash(password, 12);
       const isAdmin = isAdminPhone(phone);
+      const isApproved = isAdmin; // Admin auto-approved
 
       const result = await db.query(
-        `INSERT INTO users (phone, password_hash, business_name, city, category, is_admin)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, phone, business_name, city, category, is_admin, created_at`,
-        [phone, password_hash, business_name, city, category || 'electronics', isAdmin]
+        `INSERT INTO users (phone, password_hash, business_name, city, category, is_admin, is_approved, referred_by, referral_phone)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, phone, business_name, city, category, is_admin, is_approved, referral_phone, created_at`,
+        [phone, password_hash, business_name, city, category || 'electronics', isAdmin, isApproved, referrer.rows[0].id, referral_phone]
       );
 
       const user = result.rows[0];
+      user.referrer_name = referrer.rows[0].business_name;
       const token = generateToken(user.id);
 
       res.status(201).json({ token, user });
@@ -76,7 +85,7 @@ router.post(
       const { phone, password } = req.body;
 
       const result = await db.query(
-        'SELECT id, phone, email, avatar_url, password_hash, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, created_at FROM users WHERE phone = $1',
+        'SELECT id, phone, email, avatar_url, password_hash, business_name, city, category, bio, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users WHERE phone = $1',
         [phone]
       );
 

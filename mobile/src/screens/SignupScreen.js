@@ -17,6 +17,7 @@ export default function SignupScreen({ navigation }) {
     business_name: '',
     city: '',
     category: 'electronics',
+    referral_phone: '',
   });
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -68,8 +69,8 @@ export default function SignupScreen({ navigation }) {
   }
 
   async function handleSignup() {
-    if (!form.password || !form.business_name || !form.city) {
-      setError('Please fill in all required fields');
+    if (!form.password || !form.business_name || !form.city || !form.referral_phone) {
+      setError('Please fill in all required fields including referral');
       return;
     }
     if (form.password.length < 6) {
@@ -178,6 +179,14 @@ export default function SignupScreen({ navigation }) {
               placeholder="Your city"
               value={form.city}
               onChangeText={v => updateField('city', v)}
+            />
+
+            <Input
+              label="Referral Phone Number *"
+              placeholder="Phone # of who referred you"
+              value={form.referral_phone}
+              onChangeText={v => updateField('referral_phone', v)}
+              keyboardType="phone-pad"
             />
 
             <Text style={styles.label}>Category</Text>
