@@ -38,7 +38,7 @@ router.get('/search', authenticate, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, phone, business_name, city, category, bio, rating_score, rating_count, created_at FROM users WHERE id = $1 AND is_suspended = FALSE',
+      'SELECT id, phone, email, avatar_url, business_name, city, category, bio, rating_score, rating_count, is_suspended, created_at FROM users WHERE id = $1',
       [req.params.id]
     );
 

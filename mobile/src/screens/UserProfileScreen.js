@@ -6,7 +6,7 @@ import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
 export default function UserProfileScreen({ route, navigation }) {
-  const { id } = route.params;
+  const id = route.params.userId || route.params.id;
   const { user: currentUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [references, setReferences] = useState([]);
