@@ -157,7 +157,7 @@ router.post(
       if (err.code === 60200) {
         return res.status(400).json({ error: 'Invalid phone number format. Use +1234567890' });
       }
-      res.status(500).json({ error: 'Failed to send OTP' });
+      res.status(500).json({ error: `Failed to send OTP: ${err.message || err.code || 'Unknown error'}` });
     }
   }
 );
