@@ -55,7 +55,12 @@ app.use('/auth/verify-otp', otpLimiter);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    twilio: !!process.env.TWILIO_ACCOUNT_SID,
+    cloudinary: !!process.env.CLOUDINARY_URL,
+  });
 });
 
 // Routes
