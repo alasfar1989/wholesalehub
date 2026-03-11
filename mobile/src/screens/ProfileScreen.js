@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
@@ -61,6 +62,7 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
+    <SafeAreaView style={styles.container} edges={['top']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.profileCard}>
         <TouchableOpacity onPress={handleAvatarPick} style={styles.avatarWrap}>
@@ -137,6 +139,7 @@ export default function ProfileScreen({ navigation }) {
         </>
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
