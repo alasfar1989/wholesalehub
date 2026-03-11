@@ -70,6 +70,25 @@ export default function AdminScreen({ navigation }) {
     ]);
   }
 
+  async function handleDeleteUser(userId, businessName) {
+    Alert.alert('Delete User', `Permanently delete ${businessName}? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteUser(userId);
+            loadUsers();
+            loadDashboard();
+          } catch (err) {
+            Alert.alert('Error', err.message);
+          }
+        },
+      },
+    ]);
+  }
+
   async function handleFeature(listingId) {
     try {
       await api.toggleFeatured(listingId);
@@ -295,13 +314,22 @@ export default function AdminScreen({ navigation }) {
                 {item.email && <Text style={styles.itemSub}>{item.email}</Text>}
                 {item.is_suspended && <Text style={styles.suspended}>SUSPENDED</Text>}
               </View>
-              <Button
-                title={item.is_suspended ? 'Unsuspend' : 'Suspend'}
-                variant={item.is_suspended ? 'outline' : 'danger'}
-                onPress={() => handleSuspend(item.id, item.business_name)}
-                style={{ paddingHorizontal: spacing.sm, minHeight: 36 }}
-                textStyle={{ fontSize: 12 }}
-              />
+              <View style={{ gap: spacing.xs }}>
+                <Button
+                  title={item.is_suspended ? 'Unsuspend' : 'Suspend'}
+                  variant={item.is_suspended ? 'outline' : 'danger'}
+                  onPress={() => handleSuspend(item.id, item.business_name)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+                <Button
+                  title="Delete"
+                  variant="danger"
+                  onPress={() => handleDeleteUser(item.id, item.business_name)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32, backgroundColor: '#333' }}
+                  textStyle={{ fontSize: 12 }}
+                />
+              </View>
             </View>
           )}
           contentContainerStyle={styles.listContent}

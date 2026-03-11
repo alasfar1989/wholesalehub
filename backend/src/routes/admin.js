@@ -132,6 +132,23 @@ router.put('/users/:id/suspend', async (req, res) => {
   }
 });
 
+// DELETE /admin/users/:id - delete a user
+router.delete('/users/:id', async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete yourself' });
+    }
+    const result = await db.query('DELETE FROM users WHERE id = $1 RETURNING id, business_name', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ message: `User ${result.rows[0].business_name} deleted` });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /admin/listings - all listings
 router.get('/listings', async (req, res) => {
   try {

@@ -228,6 +228,10 @@ class ApiService {
     return this.request(`/admin/users/${userId}/reject`, { method: 'PUT' });
   }
 
+  deleteUser(userId) {
+    return this.request(`/admin/users/${userId}`, { method: 'DELETE' });
+  }
+
   toggleSuspend(userId) {
     return this.request(`/admin/users/${userId}/suspend`, { method: 'PUT' });
   }
