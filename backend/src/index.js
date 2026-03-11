@@ -53,6 +53,13 @@ const otpLimiter = rateLimit({
 app.use('/auth/send-otp', otpLimiter);
 app.use('/auth/verify-otp', otpLimiter);
 
+const path = require('path');
+
+// Privacy Policy & Terms
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages', 'privacy.html'));
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
