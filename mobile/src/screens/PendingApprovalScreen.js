@@ -1,17 +1,29 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
 export default function PendingApprovalScreen() {
-  const { logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const [checking, setChecking] = useState(false);
 
   async function handleCheckStatus() {
+    setChecking(true);
     try {
-      await refreshUser();
-    } catch {}
+      const data = await api.getMe();
+      setChecking(false);
+      if (data.user?.is_approved) {
+        await refreshUser();
+      } else {
+        Alert.alert('Still Pending', 'Your account has not been approved yet. Please check back later.');
+      }
+    } catch (err) {
+      setChecking(false);
+      Alert.alert('Error', 'Could not check status. Please try again.');
+    }
   }
 
   return (
@@ -27,8 +39,9 @@ export default function PendingApprovalScreen() {
         </Text>
 
         <Button
-          title="Check Status"
+          title={checking ? "Checking..." : "Check Status"}
           onPress={handleCheckStatus}
+          loading={checking}
           style={{ marginTop: spacing.lg, width: '100%' }}
         />
         <Button
