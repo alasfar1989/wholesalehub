@@ -271,13 +271,13 @@ export default function AdminScreen({ navigation }) {
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <View style={styles.listItem}>
-              <View style={{ flex: 1 }}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.navigate('UserProfile', { userId: item.id })}>
                 <Text style={styles.itemTitle}>{item.business_name}</Text>
                 <Text style={styles.itemSub}>{item.phone} - {item.city}</Text>
                 {item.email && <Text style={styles.itemSub}>{item.email}</Text>}
                 <Text style={styles.itemSub}>Referred by: {item.referrer_name || 'Unknown'} ({item.referral_phone})</Text>
                 <Text style={styles.itemSub}>{new Date(item.created_at).toLocaleDateString()}</Text>
-              </View>
+              </TouchableOpacity>
               <View style={{ gap: spacing.xs }}>
                 <Button
                   title="Approve"
@@ -308,12 +308,12 @@ export default function AdminScreen({ navigation }) {
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <View style={styles.listItem}>
-              <View style={{ flex: 1 }}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.navigate('UserProfile', { userId: item.id })}>
                 <Text style={styles.itemTitle}>{item.business_name}</Text>
                 <Text style={styles.itemSub}>{item.phone} - {item.city}</Text>
                 {item.email && <Text style={styles.itemSub}>{item.email}</Text>}
                 {item.is_suspended && <Text style={styles.suspended}>SUSPENDED</Text>}
-              </View>
+              </TouchableOpacity>
               <View style={{ gap: spacing.xs }}>
                 <Button
                   title={item.is_suspended ? 'Unsuspend' : 'Suspend'}

@@ -23,6 +23,7 @@ export default function SignupScreen({ navigation }) {
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const otpInputRef = useRef(null);
@@ -75,6 +76,10 @@ export default function SignupScreen({ navigation }) {
     }
     if (form.password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+    if (form.password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
     setLoading(true);
@@ -209,6 +214,14 @@ export default function SignupScreen({ navigation }) {
               placeholder="Min 6 characters"
               value={form.password}
               onChangeText={v => updateField('password', v)}
+              secureTextEntry
+            />
+
+            <Input
+              label="Confirm Password *"
+              placeholder="Re-enter your password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
               secureTextEntry
             />
 
