@@ -52,8 +52,12 @@ router.post(
         return res.status(409).json({ error: 'Phone number already registered' });
       }
 
-      // Validate referral phone belongs to an existing user
-      const referrer = await db.query('SELECT id, business_name FROM users WHERE phone = $1', [referral_phone]);
+      // Validate referral phone belongs to an existing user (match by last 10 digits)
+      const referralDigits = normalizePhone(referral_phone).slice(-10);
+      const referrer = await db.query(
+        "SELECT id, business_name FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1",
+        [referralDigits]
+      );
       if (referrer.rows.length === 0) {
         return res.status(400).json({ error: 'Referral phone number is not registered. Please enter a valid referral.' });
       }
