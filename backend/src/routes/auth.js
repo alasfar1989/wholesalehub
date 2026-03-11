@@ -12,6 +12,15 @@ function normalizePhone(phone) {
   return (phone || '').replace(/\D/g, '');
 }
 
+// Format phone to E.164 for Twilio (assumes US if 10 digits)
+function formatPhoneE164(phone) {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (phone.startsWith('+')) return phone;
+  return `+${digits}`;
+}
+
 function isAdminPhone(phone) {
   return normalizePhone(phone) === normalizePhone(process.env.ADMIN_PHONE);
 }
@@ -129,7 +138,7 @@ router.post(
   validate,
   async (req, res) => {
     try {
-      const { phone } = req.body;
+      const phone = formatPhoneE164(req.body.phone);
 
       // Only send if Twilio is configured
       if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_VERIFY_SERVICE_SID) {
@@ -163,7 +172,8 @@ router.post(
   validate,
   async (req, res) => {
     try {
-      const { phone, code } = req.body;
+      const phone = formatPhoneE164(req.body.phone);
+      const { code } = req.body;
 
       // Skip verification in dev mode
       if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_VERIFY_SERVICE_SID) {
