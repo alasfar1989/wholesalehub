@@ -80,6 +80,13 @@ router.post(
 
       const user = result.rows[0];
       user.referrer_name = referrer.rows[0].business_name;
+
+      // Auto-add referrer as a reference for the new user
+      await db.query(
+        'INSERT INTO references_table (user_id, reference_name, reference_phone) VALUES ($1, $2, $3)',
+        [user.id, referrer.rows[0].business_name, referral_phone]
+      );
+
       const token = generateToken(user.id);
 
       res.status(201).json({ token, user });
