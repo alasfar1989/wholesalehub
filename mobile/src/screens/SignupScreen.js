@@ -56,14 +56,11 @@ export default function SignupScreen({ navigation }) {
     setLoading(true);
     setError('');
     try {
-      const result = await api.verifyOtp(form.phone, otpCode);
-      if (result.verified || result.success) {
-        setOtpVerified(true);
-        setStep(2);
-      } else {
-        setError('Verification failed. Please try again.');
-      }
+      await api.verifyOtp(form.phone, otpCode);
+      setOtpVerified(true);
+      setStep(2);
     } catch (err) {
+      Alert.alert('Error', err.message || 'Verification failed');
       setError(err.message || 'Verification failed');
     } finally {
       setLoading(false);
