@@ -27,11 +27,12 @@ router.post(
     body('product_description').trim().notEmpty().withMessage('Product description is required'),
     body('listing_id').optional(),
     body('payment_method').optional().isIn(['wire', 'usdt']).withMessage('Payment method must be wire or usdt'),
+    body('fee_payer').optional().isIn(['buyer', 'seller']).withMessage('Fee payer must be buyer or seller'),
   ],
   validate,
   async (req, res) => {
     try {
-      const { seller_id, amount, product_description, listing_id, payment_method } = req.body;
+      const { seller_id, amount, product_description, listing_id, payment_method, fee_payer } = req.body;
 
       if (seller_id === req.user.id) {
         return res.status(400).json({ error: 'Cannot create escrow with yourself' });
@@ -42,17 +43,23 @@ router.post(
         return res.status(404).json({ error: 'Seller not found' });
       }
 
-      const fee = (parseFloat(amount) * ESCROW_FEE_PERCENT).toFixed(2);
+      const fee = parseFloat((parseFloat(amount) * ESCROW_FEE_PERCENT).toFixed(2));
       const method = payment_method || 'wire';
-      const wireFee = method === 'wire' ? WIRE_FEE.toFixed(2) : '0.00';
-      const payout = parseFloat(amount).toFixed(2); // seller gets full invoice amount
-      const buyerTotal = (parseFloat(amount) + parseFloat(fee) + parseFloat(wireFee)).toFixed(2);
+      const feePayerVal = fee_payer || 'buyer';
+      const wireFee = method === 'wire' ? WIRE_FEE : 0;
+
+      // Fee split logic
+      const buyerFeeShare = feePayerVal === 'buyer' ? fee : 0;
+      const sellerFeeShare = feePayerVal === 'seller' ? fee : 0;
+
+      const payout = (parseFloat(amount) - sellerFeeShare).toFixed(2);
+      const buyerTotal = (parseFloat(amount) + buyerFeeShare + wireFee).toFixed(2);
 
       const result = await db.query(
-        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, wire_fee, seller_payout, buyer_total, payment_method, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending_seller')
+        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, wire_fee, seller_payout, buyer_total, payment_method, fee_payer, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_seller')
          RETURNING *`,
-        [req.user.id, seller_id, listing_id || null, product_description, amount, fee, wireFee, payout, buyerTotal, method]
+        [req.user.id, seller_id, listing_id || null, product_description, amount, fee.toFixed(2), wireFee.toFixed(2), payout, buyerTotal, method, feePayerVal]
       );
 
       await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} via ${method.toUpperCase()}. Buyer total: $${buyerTotal}`);

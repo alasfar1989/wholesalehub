@@ -121,6 +121,9 @@ export default function EscrowDetailScreen({ route, navigation }) {
         <DetailRow label="Product" value={escrow.product_description} />
         <DetailRow label="Buyer" value={escrow.buyer_name} />
         <DetailRow label="Seller" value={escrow.seller_name} />
+        {escrow.fee_payer && (
+          <DetailRow label="Fee Paid By" value={escrow.fee_payer === 'seller' ? 'Seller' : 'Buyer'} />
+        )}
         {escrow.seller_payout_method && (
           <DetailRow label="Seller Payout" value={escrow.seller_payout_method === 'usdt' ? 'USDT' : 'Wire Transfer'} />
         )}

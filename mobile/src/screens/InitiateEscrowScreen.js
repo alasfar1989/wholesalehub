@@ -23,6 +23,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const [sellerName, setSellerName] = useState(prefill.sellerName || '');
   const [listingId, setListingId] = useState(prefill.listingId || '');
   const [paymentMethod, setPaymentMethod] = useState('wire');
+  const [feePayer, setFeePayer] = useState('buyer'); // 'buyer', 'seller', 'split'
   const [loading, setLoading] = useState(false);
 
   // Multi-line items
@@ -109,7 +110,10 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const invoiceTotal = itemSubtotals.reduce((sum, s) => sum + s, 0);
   const escrowFee = invoiceTotal > 0 ? (invoiceTotal * 0.005) : 0;
   const wireFee = paymentMethod === 'wire' ? WIRE_FEE : 0;
-  const buyerTotal = invoiceTotal + escrowFee + wireFee;
+  const buyerFee = feePayer === 'buyer' ? escrowFee : 0;
+  const sellerFee = feePayer === 'seller' ? escrowFee : 0;
+  const buyerTotal = invoiceTotal + buyerFee + wireFee;
+  const sellerPayout = invoiceTotal - sellerFee;
 
   async function handleInitiate() {
     // Validate all line items
@@ -145,6 +149,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         product_description: productDescription,
         listing_id: listingId || undefined,
         payment_method: paymentMethod,
+        fee_payer: feePayer,
       });
       Alert.alert('Escrow Created', 'Waiting for seller to confirm the deal.', [
         { text: 'OK', onPress: () => navigation.navigate('EscrowDetail', { id: data.escrow.id }) },
@@ -335,6 +340,23 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* Who pays escrow fee */}
+      <Text style={styles.fieldLabel}>Who Pays the Escrow Fee?</Text>
+      <View style={styles.paymentRow}>
+        <TouchableOpacity
+          style={[styles.feePayerOption, feePayer === 'buyer' && styles.feePayerActive]}
+          onPress={() => setFeePayer('buyer')}
+        >
+          <Text style={[styles.feePayerText, feePayer === 'buyer' && styles.feePayerTextActive]}>Buyer</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.feePayerOption, feePayer === 'seller' && styles.feePayerActive]}
+          onPress={() => setFeePayer('seller')}
+        >
+          <Text style={[styles.feePayerText, feePayer === 'seller' && styles.feePayerTextActive]}>Seller</Text>
+        </TouchableOpacity>
+      </View>
+
       {invoiceTotal > 0 ? (
         <View style={styles.feeCard}>
           {lineItems.map((item, index) => {
@@ -359,6 +381,18 @@ export default function InitiateEscrowScreen({ route, navigation }) {
             <Text style={styles.feeLabel}>Escrow Fee (0.5%)</Text>
             <Text style={styles.feeValue}>${escrowFee.toFixed(2)}</Text>
           </View>
+          {buyerFee > 0 && (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>  Buyer's share</Text>
+              <Text style={styles.feeValue}>${buyerFee.toFixed(2)}</Text>
+            </View>
+          )}
+          {sellerFee > 0 && (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>  Deducted from seller</Text>
+              <Text style={[styles.feeValue, { color: colors.error }]}>-${sellerFee.toFixed(2)}</Text>
+            </View>
+          )}
           {paymentMethod === 'wire' && (
             <View style={styles.feeRow}>
               <Text style={styles.feeLabel}>Wire Transfer Fee</Text>
@@ -371,7 +405,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
           </View>
           <View style={styles.feeRow}>
             <Text style={styles.feeLabel}>Seller Receives</Text>
-            <Text style={[styles.feeValue, { color: colors.success }]}>${invoiceTotal.toLocaleString()}</Text>
+            <Text style={[styles.feeValue, { color: colors.success }]}>${sellerPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
         </View>
       ) : null}
@@ -493,6 +527,21 @@ const styles = StyleSheet.create({
   },
   paymentText: { fontSize: 15, fontWeight: '600', color: colors.text },
   paymentTextActive: { color: '#fff' },
+  feePayerOption: {
+    flex: 1,
+    padding: spacing.sm + 2,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  feePayerActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  feePayerText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  feePayerTextActive: { color: '#fff' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
   feeCard: {
     backgroundColor: colors.surface,
