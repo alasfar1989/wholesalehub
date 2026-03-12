@@ -1,9 +1,9 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../utils/theme';
+import { Ionicons } from '@expo/vector-icons';
 import PendingApprovalScreen from '../screens/PendingApprovalScreen';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -29,11 +29,20 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Home: '[]', Create: '+', Search: 'Q', Messages: '@', Escrow: '$', Profile: 'P', Admin: 'A' };
+  const iconMap = {
+    Home: focused ? 'home' : 'home-outline',
+    Search: focused ? 'search' : 'search-outline',
+    Create: focused ? 'add-circle' : 'add-circle-outline',
+    Escrow: focused ? 'shield-checkmark' : 'shield-checkmark-outline',
+    Profile: focused ? 'person' : 'person-outline',
+    Admin: focused ? 'settings' : 'settings-outline',
+  };
   return (
-    <Text style={{ fontSize: 11, color: focused ? colors.primary : colors.textLight, fontWeight: focused ? '700' : '400' }}>
-      {icons[label] || label.charAt(0)}
-    </Text>
+    <Ionicons
+      name={iconMap[label] || 'ellipse-outline'}
+      size={24}
+      color={focused ? colors.primary : colors.textLight}
+    />
   );
 }
 
