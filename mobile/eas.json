@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 10.0.0"
+    "version": ">= 10.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -17,9 +18,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "your-apple-id@email.com",
-        "ascAppId": "your-asc-app-id",
-        "appleTeamId": "your-team-id"
+        "appleId": "alasfar1@gmail.com",
+        "appleTeamId": "6ZGA3Q69H8"
       },
       "android": {
         "serviceAccountKeyPath": "./google-services.json",

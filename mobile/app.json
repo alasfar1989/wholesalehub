@@ -17,7 +17,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wholesalehub.app",
-      "buildNumber": "1"
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +31,10 @@
       "versionCode": 1
     },
     "extra": {
-      "apiUrl": "https://wholesalehub-production-25ae.up.railway.app"
+      "apiUrl": "https://wholesalehub-production-25ae.up.railway.app",
+      "eas": {
+        "projectId": "24a5ae11-8cca-47cd-99bf-a45f8d07f8cf"
+      }
     },
     "plugins": [
       "expo-secure-store",
@@ -39,6 +45,7 @@
           "color": "#1a1a2e"
         }
       ]
-    ]
+    ],
+    "owner": "alasfar1"
   }
 }
