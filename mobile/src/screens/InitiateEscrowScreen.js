@@ -6,6 +6,8 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
+const WIRE_FEE = 25;
+
 export default function InitiateEscrowScreen({ route, navigation }) {
   const prefill = route.params || {};
   const { user } = useAuth();
@@ -20,10 +22,34 @@ export default function InitiateEscrowScreen({ route, navigation }) {
   const [sellerId, setSellerId] = useState(prefill.sellerId || '');
   const [sellerName, setSellerName] = useState(prefill.sellerName || '');
   const [listingId, setListingId] = useState(prefill.listingId || '');
-  const [amount, setAmount] = useState(prefill.amount || '');
-  const [description, setDescription] = useState(prefill.description || '');
   const [paymentMethod, setPaymentMethod] = useState('wire');
   const [loading, setLoading] = useState(false);
+
+  // Multi-line items
+  const [lineItems, setLineItems] = useState([
+    {
+      description: prefill.description || '',
+      pricePerUnit: prefill.amount || '',
+      quantity: '1',
+    },
+  ]);
+
+  function updateLineItem(index, field, value) {
+    setLineItems(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function addLineItem() {
+    setLineItems(prev => [...prev, { description: '', pricePerUnit: '', quantity: '1' }]);
+  }
+
+  function removeLineItem(index) {
+    if (lineItems.length <= 1) return;
+    setLineItems(prev => prev.filter((_, i) => i !== index));
+  }
 
   function pickType(type) {
     setSelectedType(type);
@@ -52,8 +78,11 @@ export default function InitiateEscrowScreen({ route, navigation }) {
     setSellerId(listing.user_id);
     setSellerName(listing.business_name);
     setListingId(listing.id);
-    setDescription(`${listing.title} - Qty: ${listing.quantity}`);
-    setAmount(listing.price ? String(listing.price) : '');
+    setLineItems([{
+      description: listing.title,
+      pricePerUnit: listing.price ? String(listing.price) : '',
+      quantity: listing.quantity ? String(listing.quantity) : '1',
+    }]);
     setStep('form');
   }
 
@@ -66,27 +95,54 @@ export default function InitiateEscrowScreen({ route, navigation }) {
       setSellerId('');
       setSellerName('');
       setListingId('');
-      setDescription('');
-      setAmount('');
+      setLineItems([{ description: '', pricePerUnit: '', quantity: '1' }]);
       setStep('listing');
     }
   }
 
+  // Calculations
+  const itemSubtotals = lineItems.map(item => {
+    const price = parseFloat(item.pricePerUnit) || 0;
+    const qty = parseInt(item.quantity) || 0;
+    return price * qty;
+  });
+  const invoiceTotal = itemSubtotals.reduce((sum, s) => sum + s, 0);
+  const escrowFee = invoiceTotal > 0 ? (invoiceTotal * 0.005) : 0;
+  const wireFee = paymentMethod === 'wire' ? WIRE_FEE : 0;
+  const buyerTotal = invoiceTotal + escrowFee + wireFee;
+
   async function handleInitiate() {
-    if (!sellerId || !amount || !description) {
-      Alert.alert('Error', 'All fields are required');
+    // Validate all line items
+    for (let i = 0; i < lineItems.length; i++) {
+      const item = lineItems[i];
+      if (!item.description.trim()) {
+        Alert.alert('Error', `Product ${i + 1}: description is required`);
+        return;
+      }
+      if (!item.pricePerUnit || parseFloat(item.pricePerUnit) < 1) {
+        Alert.alert('Error', `Product ${i + 1}: price must be at least $1`);
+        return;
+      }
+      if (!item.quantity || parseInt(item.quantity) < 1) {
+        Alert.alert('Error', `Product ${i + 1}: quantity must be at least 1`);
+        return;
+      }
+    }
+    if (!sellerId) {
+      Alert.alert('Error', 'Seller is required');
       return;
     }
-    if (parseFloat(amount) < 1) {
-      Alert.alert('Error', 'Amount must be at least $1');
-      return;
-    }
+
+    const productDescription = lineItems.map(item =>
+      `${item.description} - Qty: ${item.quantity} @ $${Number(item.pricePerUnit).toLocaleString()}/unit`
+    ).join('\n');
+
     setLoading(true);
     try {
       const data = await api.initiateEscrow({
         seller_id: sellerId,
-        amount: parseFloat(amount),
-        product_description: description,
+        amount: invoiceTotal,
+        product_description: productDescription,
         listing_id: listingId || undefined,
         payment_method: paymentMethod,
       });
@@ -99,9 +155,6 @@ export default function InitiateEscrowScreen({ route, navigation }) {
       setLoading(false);
     }
   }
-
-  const fee = amount ? (parseFloat(amount) * 0.01).toFixed(2) : '0.00';
-  const payout = amount ? (parseFloat(amount) - parseFloat(fee)).toFixed(2) : '0.00';
 
   // Step 1: Pick WTS or WTB
   if (step === 'type') {
@@ -215,22 +268,55 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         <Input label="Seller" value={sellerName} editable={false} />
       )}
 
-      <Input
-        label="Product Description"
-        placeholder="e.g., 50x iPhone 15 Pro Max 256GB, sealed"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        numberOfLines={3}
-      />
+      {/* Line Items */}
+      {lineItems.map((item, index) => (
+        <View key={index} style={styles.lineItemCard}>
+          <View style={styles.lineItemHeader}>
+            <Text style={styles.lineItemLabel}>Product {lineItems.length > 1 ? index + 1 : ''}</Text>
+            {lineItems.length > 1 && (
+              <TouchableOpacity onPress={() => removeLineItem(index)}>
+                <Text style={styles.removeLink}>Remove</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Input
+            label="Description"
+            placeholder="e.g., iPhone 15 Pro Max 256GB, sealed"
+            value={item.description}
+            onChangeText={val => updateLineItem(index, 'description', val)}
+          />
+          <View style={styles.priceQtyRow}>
+            <View style={{ flex: 1 }}>
+              <Input
+                label="Price Per Unit ($)"
+                placeholder="0.00"
+                value={item.pricePerUnit}
+                onChangeText={val => updateLineItem(index, 'pricePerUnit', val)}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={{ width: spacing.sm }} />
+            <View style={{ flex: 0.5 }}>
+              <Input
+                label="Qty"
+                placeholder="1"
+                value={item.quantity}
+                onChangeText={val => updateLineItem(index, 'quantity', val)}
+                keyboardType="number-pad"
+              />
+            </View>
+          </View>
+          {(parseFloat(item.pricePerUnit) > 0 && parseInt(item.quantity) > 0) && (
+            <Text style={styles.lineSubtotal}>
+              Subtotal: ${(parseFloat(item.pricePerUnit) * parseInt(item.quantity)).toLocaleString()}
+            </Text>
+          )}
+        </View>
+      ))}
 
-      <Input
-        label="Total Amount ($)"
-        placeholder="0.00"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
-      />
+      <TouchableOpacity style={styles.addProductBtn} onPress={addLineItem}>
+        <Text style={styles.addProductText}>+ Add More Product</Text>
+      </TouchableOpacity>
 
       {/* Payment Method */}
       <Text style={styles.fieldLabel}>Payment Method</Text>
@@ -249,11 +335,45 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {amount ? (
-        <>
-          <Input label="Escrow Fee (1%)" value={`$${fee}`} editable={false} />
-          <Input label="Seller Payout" value={`$${payout}`} editable={false} />
-        </>
+      {invoiceTotal > 0 ? (
+        <View style={styles.feeCard}>
+          {lineItems.map((item, index) => {
+            const sub = itemSubtotals[index];
+            if (!sub) return null;
+            return (
+              <View key={index} style={styles.feeRow}>
+                <Text style={styles.feeLabel} numberOfLines={1}>
+                  {item.description || `Product ${index + 1}`} ({item.quantity}x)
+                </Text>
+                <Text style={styles.feeValue}>${sub.toLocaleString()}</Text>
+              </View>
+            );
+          })}
+          {lineItems.length > 1 && (
+            <View style={[styles.feeRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 4, marginTop: 4 }]}>
+              <Text style={[styles.feeLabel, { fontWeight: '600' }]}>Invoice Total</Text>
+              <Text style={[styles.feeValue, { fontWeight: '600' }]}>${invoiceTotal.toLocaleString()}</Text>
+            </View>
+          )}
+          <View style={styles.feeRow}>
+            <Text style={styles.feeLabel}>Escrow Fee (0.5%)</Text>
+            <Text style={styles.feeValue}>${escrowFee.toFixed(2)}</Text>
+          </View>
+          {paymentMethod === 'wire' && (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>Wire Transfer Fee</Text>
+              <Text style={styles.feeValue}>${wireFee.toFixed(2)}</Text>
+            </View>
+          )}
+          <View style={[styles.feeRow, styles.feeTotalRow]}>
+            <Text style={styles.feeTotalLabel}>Buyer Pays</Text>
+            <Text style={styles.feeTotalValue}>${buyerTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          </View>
+          <View style={styles.feeRow}>
+            <Text style={styles.feeLabel}>Seller Receives</Text>
+            <Text style={[styles.feeValue, { color: colors.success }]}>${invoiceTotal.toLocaleString()}</Text>
+          </View>
+        </View>
       ) : null}
 
       <Button title="Initiate Escrow" onPress={handleInitiate} loading={loading} style={{ marginTop: spacing.sm }} />
@@ -322,6 +442,40 @@ const styles = StyleSheet.create({
   selectedTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 4 },
   selectedSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  lineItemCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  lineItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  lineItemLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
+  removeLink: { fontSize: 14, fontWeight: '600', color: colors.error },
+  lineSubtotal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'right',
+    marginTop: -spacing.xs,
+  },
+  addProductBtn: {
+    padding: spacing.md,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  addProductText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+  priceQtyRow: { flexDirection: 'row', alignItems: 'flex-start' },
   fieldLabel: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: spacing.sm },
   paymentRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   paymentOption: {
@@ -340,4 +494,27 @@ const styles = StyleSheet.create({
   paymentText: { fontSize: 15, fontWeight: '600', color: colors.text },
   paymentTextActive: { color: '#fff' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
+  feeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  feeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  feeLabel: { fontSize: 14, color: colors.textSecondary, flex: 1, marginRight: spacing.sm },
+  feeValue: { fontSize: 14, fontWeight: '500', color: colors.text },
+  feeTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  feeTotalLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
+  feeTotalValue: { fontSize: 15, fontWeight: '700', color: colors.primary },
 });

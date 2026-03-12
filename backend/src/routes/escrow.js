@@ -7,6 +7,7 @@ const { sendPushNotification } = require('../utils/pushNotifications');
 
 const router = express.Router();
 const ESCROW_FEE_PERCENT = 0.005; // 0.5%
+const WIRE_FEE = 25; // flat wire transfer fee
 
 // Helper to log escrow events
 async function logEvent(escrowId, action, userId, details) {
@@ -42,17 +43,19 @@ router.post(
       }
 
       const fee = (parseFloat(amount) * ESCROW_FEE_PERCENT).toFixed(2);
-      const payout = (parseFloat(amount) - parseFloat(fee)).toFixed(2);
       const method = payment_method || 'wire';
+      const wireFee = method === 'wire' ? WIRE_FEE.toFixed(2) : '0.00';
+      const payout = parseFloat(amount).toFixed(2); // seller gets full invoice amount
+      const buyerTotal = (parseFloat(amount) + parseFloat(fee) + parseFloat(wireFee)).toFixed(2);
 
       const result = await db.query(
-        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, seller_payout, payment_method, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending_seller')
+        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, wire_fee, seller_payout, buyer_total, payment_method, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending_seller')
          RETURNING *`,
-        [req.user.id, seller_id, listing_id || null, product_description, amount, fee, payout, method]
+        [req.user.id, seller_id, listing_id || null, product_description, amount, fee, wireFee, payout, buyerTotal, method]
       );
 
-      await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} via ${method.toUpperCase()}`);
+      await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} via ${method.toUpperCase()}. Buyer total: $${buyerTotal}`);
 
       // Notify seller
       const buyer = await db.query('SELECT business_name FROM users WHERE id = $1', [req.user.id]);
@@ -76,13 +79,14 @@ router.post('/:id/confirm', authenticate, async (req, res) => {
     if (e.seller_id !== req.user.id) return res.status(403).json({ error: 'Only the seller can confirm' });
     if (e.status !== 'pending_seller') return res.status(400).json({ error: `Cannot confirm from status: ${e.status}` });
 
+    const sellerPayoutMethod = req.body.seller_payout_method || 'wire';
     const result = await db.query(
-      `UPDATE escrows SET status = 'pending_payment', seller_confirmed = TRUE, updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
-      [req.params.id]
+      `UPDATE escrows SET status = 'pending_payment', seller_confirmed = TRUE, seller_payout_method = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [sellerPayoutMethod, req.params.id]
     );
 
-    await logEvent(req.params.id, 'seller_confirmed', req.user.id, 'Seller approved the escrow');
+    await logEvent(req.params.id, 'seller_confirmed', req.user.id, `Seller approved the escrow. Payout via ${sellerPayoutMethod.toUpperCase()}`);
     sendPushNotification(e.buyer_id, 'Escrow Approved', 'The seller approved your escrow. Please send payment.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {
@@ -223,7 +227,7 @@ router.post('/:id/release-payment', authenticate, requireAdmin, async (req, res)
     );
 
     await logEvent(req.params.id, 'payment_released', req.user.id,
-      `Released $${e.seller_payout} to seller. Fee collected: $${e.escrow_fee}`);
+      `Released $${e.seller_payout} to seller. Fee collected: $${e.escrow_fee}${e.wire_fee > 0 ? ` + $${e.wire_fee} wire fee` : ''}`);
     sendPushNotification(e.seller_id, 'Payment Released', `$${e.seller_payout} has been released to you.`, { type: 'escrow', escrowId: req.params.id });
     sendPushNotification(e.buyer_id, 'Escrow Completed', 'Your escrow transaction is complete.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
@@ -397,6 +401,7 @@ router.get('/admin/all', authenticate, requireAdmin, async (req, res) => {
       `SELECT
         COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
         COALESCE(SUM(escrow_fee) FILTER (WHERE status = 'completed'), 0) as total_fees,
+        COALESCE(SUM(COALESCE(wire_fee, 0)) FILTER (WHERE status = 'completed'), 0) as total_wire_fees,
         COALESCE(SUM(amount) FILTER (WHERE status = 'completed'), 0) as total_volume,
         COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped','delivered')) as active_count,
         COUNT(*) FILTER (WHERE status = 'disputed') as disputed_count

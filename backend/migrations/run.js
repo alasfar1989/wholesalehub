@@ -88,7 +88,9 @@ CREATE TABLE IF NOT EXISTS escrows (
   product_description TEXT NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   escrow_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  wire_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   seller_payout DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  buyer_total DECIMAL(12,2),
   status VARCHAR(30) NOT NULL DEFAULT 'pending_seller'
     CHECK (status IN ('pending_seller', 'pending_payment', 'payment_received', 'shipped', 'delivered', 'completed', 'disputed', 'cancelled')),
   wire_proof_url TEXT,

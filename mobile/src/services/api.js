@@ -265,8 +265,11 @@ class ApiService {
     return this.request(`/escrow/${id}`);
   }
 
-  confirmEscrow(id) {
-    return this.request(`/escrow/${id}/confirm`, { method: 'POST' });
+  confirmEscrow(id, sellerPayoutMethod) {
+    return this.request(`/escrow/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ seller_payout_method: sellerPayoutMethod }),
+    });
   }
 
   uploadWireProof(id, wireProofUrl) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Keyboard } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
@@ -42,6 +43,8 @@ export default function EscrowDetailScreen({ route, navigation }) {
   const [rateComment, setRateComment] = useState('');
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [wireInstructions, setWireInstructions] = useState('');
+  const [selectedPayMethod, setSelectedPayMethod] = useState(null);
+  const [sellerPayoutMethod, setSellerPayoutMethod] = useState(null);
 
   useEffect(() => {
     loadEscrow();
@@ -88,11 +91,27 @@ export default function EscrowDetailScreen({ route, navigation }) {
 
       {/* Amount */}
       <View style={styles.amountCard}>
-        <Text style={styles.amountLabel}>Escrow Amount</Text>
+        <Text style={styles.amountLabel}>Invoice Total</Text>
         <Text style={styles.amount}>${Number(escrow.amount).toLocaleString()}</Text>
-        <View style={styles.feeRow}>
-          <Text style={styles.feeText}>Fee (1%): ${Number(escrow.escrow_fee).toFixed(2)}</Text>
-          <Text style={styles.feeText}>Seller Payout: ${Number(escrow.seller_payout).toFixed(2)}</Text>
+        <View style={styles.feeBreakdown}>
+          <View style={styles.feeBreakdownRow}>
+            <Text style={styles.feeText}>Escrow Fee (0.5%)</Text>
+            <Text style={styles.feeText}>${Number(escrow.escrow_fee).toFixed(2)}</Text>
+          </View>
+          {escrow.payment_method === 'wire' && Number(escrow.wire_fee || 0) > 0 && (
+            <View style={styles.feeBreakdownRow}>
+              <Text style={styles.feeText}>Wire Transfer Fee</Text>
+              <Text style={styles.feeText}>${Number(escrow.wire_fee).toFixed(2)}</Text>
+            </View>
+          )}
+          <View style={[styles.feeBreakdownRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.xs, marginTop: spacing.xs }]}>
+            <Text style={[styles.feeText, { fontWeight: '700', color: colors.text }]}>Buyer Pays</Text>
+            <Text style={[styles.feeText, { fontWeight: '700', color: colors.primary }]}>${Number(escrow.buyer_total || (parseFloat(escrow.amount) + parseFloat(escrow.escrow_fee) + parseFloat(escrow.wire_fee || 0))).toFixed(2)}</Text>
+          </View>
+          <View style={styles.feeBreakdownRow}>
+            <Text style={styles.feeText}>Seller Receives</Text>
+            <Text style={[styles.feeText, { color: colors.success }]}>${Number(escrow.seller_payout).toFixed(2)}</Text>
+          </View>
         </View>
       </View>
 
@@ -102,9 +121,11 @@ export default function EscrowDetailScreen({ route, navigation }) {
         <DetailRow label="Product" value={escrow.product_description} />
         <DetailRow label="Buyer" value={escrow.buyer_name} />
         <DetailRow label="Seller" value={escrow.seller_name} />
-        <DetailRow label="Payment" value={escrow.payment_method === 'usdt' ? 'USDT' : 'Wire Transfer'} />
+        {escrow.seller_payout_method && (
+          <DetailRow label="Seller Payout" value={escrow.seller_payout_method === 'usdt' ? 'USDT' : 'Wire Transfer'} />
+        )}
         {escrow.tracking_number && <DetailRow label="Tracking" value={escrow.tracking_number} />}
-        {escrow.wire_proof_url && <DetailRow label="Wire Proof" value={escrow.wire_proof_url} />}
+        {escrow.wire_proof_url && <DetailRow label="Payment Proof" value={escrow.wire_proof_url} />}
         <DetailRow label="Created" value={new Date(escrow.created_at).toLocaleDateString()} />
       </View>
 
@@ -112,14 +133,52 @@ export default function EscrowDetailScreen({ route, navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Actions</Text>
 
-        {/* Seller confirms deal */}
+        {/* Seller confirms deal + chooses payout method */}
         {isSeller && escrow.status === 'pending_seller' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>The buyer wants to start an escrow with you. Review and confirm.</Text>
+            <Text style={styles.actionHint}>The buyer wants to start an escrow with you. Review the details and choose how you'd like to receive your payout.</Text>
+
+            <Text style={[styles.actionHint, { fontWeight: '700', color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm }]}>How do you want to get paid?</Text>
+            <View style={styles.payMethodTabs}>
+              <TouchableOpacity
+                style={[styles.payMethodTab, sellerPayoutMethod === 'wire' && styles.payMethodTabActive]}
+                onPress={() => setSellerPayoutMethod('wire')}
+              >
+                <Text style={[styles.payMethodTabText, sellerPayoutMethod === 'wire' && styles.payMethodTabTextActive]}>Wire Transfer</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payMethodTab, sellerPayoutMethod === 'usdt' && styles.payMethodTabActive]}
+                onPress={() => setSellerPayoutMethod('usdt')}
+              >
+                <Text style={[styles.payMethodTabText, sellerPayoutMethod === 'usdt' && styles.payMethodTabTextActive]}>USDT</Text>
+              </TouchableOpacity>
+            </View>
+
+            {sellerPayoutMethod === 'wire' && (
+              <View style={styles.payoutInfoBox}>
+                <Text style={styles.payoutInfoText}>You'll receive ${Number(escrow.seller_payout || escrow.amount).toLocaleString()} via wire transfer after the deal completes. Admin will contact you for your bank details.</Text>
+              </View>
+            )}
+            {sellerPayoutMethod === 'usdt' && (
+              <View style={styles.payoutInfoBox}>
+                <Text style={styles.payoutInfoText}>You'll receive ${Number(escrow.seller_payout || escrow.amount).toLocaleString()} in USDT after the deal completes. Admin will contact you for your wallet address.</Text>
+              </View>
+            )}
+
             <Button
               title="Confirm Deal"
-              onPress={() => performAction(() => api.confirmEscrow(id), 'Deal confirmed! Buyer can now send payment.')}
+              onPress={() => {
+                if (!sellerPayoutMethod) {
+                  Alert.alert('Error', 'Please choose how you want to receive your payout');
+                  return;
+                }
+                performAction(
+                  () => api.confirmEscrow(id, sellerPayoutMethod),
+                  'Deal confirmed! Buyer can now send payment.'
+                );
+              }}
               loading={actionLoading}
+              style={{ marginTop: spacing.sm }}
             />
             <Button
               title="Decline"
@@ -131,80 +190,139 @@ export default function EscrowDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Buyer sees payment instructions + uploads proof */}
+        {/* Buyer chooses payment method and sends proof */}
         {isBuyer && escrow.status === 'pending_payment' && (
           <View style={styles.actionGroup}>
-            {escrow.payment_method === 'usdt' ? (
-              <View style={styles.paymentInstructions}>
-                <Text style={styles.paymentTitle}>Send USDT Payment</Text>
-                <Text style={styles.paymentAmount}>${Number(escrow.amount).toLocaleString()}</Text>
-                <Text style={styles.paymentDetail}>Network: TRC-20 (Tron)</Text>
-                <Text style={[styles.paymentDetail, { fontWeight: '700', fontSize: 13 }]} selectable>
-                  {process.env.EXPO_PUBLIC_USDT_ADDRESS || 'USDT address will be provided by admin'}
-                </Text>
-                <Text style={styles.paymentNote}>
-                  Send exactly ${Number(escrow.amount).toLocaleString()} USDT. After sending, paste your transaction hash below.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.paymentInstructions}>
-                <Text style={styles.paymentTitle}>Wire Transfer Details</Text>
-                <Text style={styles.paymentAmount}>${Number(escrow.amount).toLocaleString()}</Text>
-                {escrow.wire_instructions ? (
-                  <Text style={styles.paymentDetail} selectable>{escrow.wire_instructions}</Text>
-                ) : (
-                  <>
-                    <Text style={styles.paymentDetail}>Bank: Contact admin for wire details</Text>
-                    <Text style={styles.paymentNote}>
-                      Wire ${Number(escrow.amount).toLocaleString()} to the escrow account. Include your escrow ID as reference.
-                    </Text>
-                  </>
-                )}
-              </View>
-            )}
-            <Input
-              label={escrow.payment_method === 'usdt' ? 'Transaction Hash / Proof' : 'Wire Proof (URL or receipt details)'}
-              placeholder={escrow.payment_method === 'usdt' ? 'Paste USDT transaction hash' : 'Paste receipt link or describe payment'}
-              value={proofUrl}
-              onChangeText={setProofUrl}
-              multiline
-            />
-            <Button
-              title="Upload Payment Proof"
-              onPress={() => {
-                if (!proofUrl.trim()) { Alert.alert('Error', 'Please enter proof details'); return; }
-                performAction(() => api.uploadWireProof(id, proofUrl), 'Proof uploaded! Waiting for admin verification.');
-              }}
-              loading={actionLoading}
-            />
-          </View>
-        )}
+            <Text style={styles.actionHint}>Choose your payment method:</Text>
 
-        {/* Admin sets payment instructions */}
-        {isAdmin && escrow.status === 'pending_payment' && !escrow.wire_proof_url && (
-          <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>
-              Set payment instructions for the buyer. They will see these details when making payment.
-            </Text>
-            <Input
-              label="Payment Instructions"
-              placeholder={escrow.payment_method === 'usdt' ? 'USDT wallet address (TRC-20)' : 'Bank name, account number, routing...'}
-              value={wireInstructions || escrow.wire_instructions || ''}
-              onChangeText={setWireInstructions}
-              multiline
-              numberOfLines={4}
-            />
-            <Button
-              title="Save Payment Instructions"
-              onPress={() => {
-                if (!wireInstructions.trim()) { Alert.alert('Error', 'Please enter payment instructions'); return; }
-                performAction(
-                  () => api.updateWireInstructions(id, wireInstructions),
-                  'Payment instructions saved and buyer notified.'
-                );
-              }}
-              loading={actionLoading}
-            />
+            {/* Payment method tabs */}
+            <View style={styles.payMethodTabs}>
+              <TouchableOpacity
+                style={[styles.payMethodTab, selectedPayMethod === 'wire' && styles.payMethodTabActive]}
+                onPress={() => setSelectedPayMethod('wire')}
+              >
+                <Text style={[styles.payMethodTabText, selectedPayMethod === 'wire' && styles.payMethodTabTextActive]}>Wire Transfer</Text>
+                <Text style={[styles.payMethodTabSub, selectedPayMethod === 'wire' && styles.payMethodTabTextActive]}>+ $25 wire fee</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payMethodTab, selectedPayMethod === 'usdt' && styles.payMethodTabActive]}
+                onPress={() => setSelectedPayMethod('usdt')}
+              >
+                <Text style={[styles.payMethodTabText, selectedPayMethod === 'usdt' && styles.payMethodTabTextActive]}>USDT</Text>
+                <Text style={[styles.payMethodTabSub, selectedPayMethod === 'usdt' && styles.payMethodTabTextActive]}>No extra fee</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Wire Transfer details */}
+            {selectedPayMethod === 'wire' && (
+              <>
+                <View style={styles.paymentInstructions}>
+                  <Text style={styles.paymentTitle}>Wire Transfer Details</Text>
+                  <View style={styles.payTotalBox}>
+                    <Text style={styles.payTotalLabel}>Amount to Wire</Text>
+                    <Text style={styles.payTotalAmount}>${(parseFloat(escrow.amount) + parseFloat(escrow.amount) * 0.005 + 25).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                    <Text style={styles.payTotalBreakdown}>
+                      ${Number(escrow.amount).toLocaleString()} + ${(parseFloat(escrow.amount) * 0.005).toFixed(2)} fee + $25.00 wire
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.paymentDetail, { fontWeight: '700', marginBottom: 4 }]}>Beneficiary</Text>
+                  <Text style={styles.paymentDetail}>Account Name: CP WIRELESS 1 INC</Text>
+                  <Text style={styles.paymentDetail}>Account Type: Checking</Text>
+                  <Text style={styles.paymentDetail}>Address: 3034 Northwest 72nd Avenue, Miami, FL 33122</Text>
+
+                  <Text style={[styles.paymentDetail, { fontWeight: '700', marginTop: spacing.sm, marginBottom: 4 }]}>Bank Details</Text>
+                  <Text style={styles.paymentDetail} selectable>Account Number: 200002276186</Text>
+                  <Text style={styles.paymentDetail} selectable>Routing Number: 064209588</Text>
+                  <Text style={styles.paymentDetail}>Bank: Thread Bank</Text>
+                  <Text style={styles.paymentDetail}>Bank Address: 210 E Main St, Rogersville TN 37857</Text>
+
+                  <Text style={styles.paymentNote}>
+                    Use your escrow ID as the reference/memo.
+                  </Text>
+                </View>
+                <Input
+                  label="Wire Proof (URL or receipt details)"
+                  placeholder="Paste receipt link or describe payment"
+                  value={proofUrl}
+                  onChangeText={setProofUrl}
+                  multiline
+                />
+                <Button
+                  title="Upload Wire Proof"
+                  onPress={() => {
+                    if (!proofUrl.trim()) { Alert.alert('Error', 'Please enter proof details'); return; }
+                    performAction(() => api.uploadWireProof(id, proofUrl), 'Proof uploaded! Waiting for admin verification.');
+                  }}
+                  loading={actionLoading}
+                />
+              </>
+            )}
+
+            {/* USDT details - choose network */}
+            {selectedPayMethod === 'usdt' && (
+              <>
+                <View style={styles.paymentInstructions}>
+                  <Text style={styles.paymentTitle}>Send USDT Payment</Text>
+                  <View style={styles.payTotalBox}>
+                    <Text style={styles.payTotalLabel}>Amount to Send</Text>
+                    <Text style={styles.payTotalAmount}>${(parseFloat(escrow.amount) + parseFloat(escrow.amount) * 0.005).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</Text>
+                    <Text style={styles.payTotalBreakdown}>
+                      ${Number(escrow.amount).toLocaleString()} + ${(parseFloat(escrow.amount) * 0.005).toFixed(2)} fee
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.paymentDetail, { fontWeight: '700', textAlign: 'center', marginBottom: spacing.sm }]}>Choose Network</Text>
+
+                  {/* TRC-20 */}
+                  <View style={styles.networkCard}>
+                    <View style={styles.networkHeader}>
+                      <Text style={styles.networkBadgeTrc}>TRC-20</Text>
+                      <Text style={styles.networkName}>Tron Network</Text>
+                    </View>
+                    <View style={styles.qrContainer}>
+                      <QRCode value="TTrMfykhVgGNVxzqbiDfowuVN2guWax73S" size={160} />
+                    </View>
+                    <Text style={styles.walletAddress} selectable>
+                      TTrMfykhVgGNVxzqbiDfowuVN2guWax73S
+                    </Text>
+                  </View>
+
+                  {/* ERC-20 */}
+                  <View style={[styles.networkCard, { marginTop: spacing.sm }]}>
+                    <View style={styles.networkHeader}>
+                      <Text style={styles.networkBadgeErc}>ERC-20</Text>
+                      <Text style={styles.networkName}>Ethereum Network</Text>
+                    </View>
+                    <View style={styles.qrContainer}>
+                      <QRCode value="0x2F834f53c014Ab13fEe0779Df306301296bA73b2" size={160} />
+                    </View>
+                    <Text style={styles.walletAddress} selectable>
+                      0x2F834f53c014Ab13fEe0779Df306301296bA73b2
+                    </Text>
+                  </View>
+
+                  <Text style={styles.paymentNote}>
+                    Send to either network above. After sending, paste your transaction hash below.
+                  </Text>
+                </View>
+                <Input
+                  label="Transaction Hash / Proof"
+                  placeholder="Paste USDT transaction hash"
+                  value={proofUrl}
+                  onChangeText={setProofUrl}
+                  multiline
+                />
+                <Button
+                  title="Upload USDT Proof"
+                  onPress={() => {
+                    if (!proofUrl.trim()) { Alert.alert('Error', 'Please enter proof details'); return; }
+                    performAction(() => api.uploadWireProof(id, proofUrl), 'Proof uploaded! Waiting for admin verification.');
+                  }}
+                  loading={actionLoading}
+                />
+              </>
+            )}
           </View>
         )}
 
@@ -458,8 +576,9 @@ const styles = StyleSheet.create({
   },
   amountLabel: { fontSize: 13, color: colors.textSecondary },
   amount: { fontSize: 36, fontWeight: '800', color: colors.primary, marginVertical: spacing.xs },
-  feeRow: { flexDirection: 'row', gap: spacing.md },
-  feeText: { fontSize: 12, color: colors.textLight },
+  feeBreakdown: { width: '100%', marginTop: spacing.sm },
+  feeBreakdownRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
+  feeText: { fontSize: 13, color: colors.textLight },
   section: {
     backgroundColor: colors.surface,
     padding: spacing.md,
@@ -498,6 +617,124 @@ const styles = StyleSheet.create({
   },
   starActive: {
     color: colors.star,
+  },
+  payMethodTabs: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  payMethodTab: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  payMethodTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  payMethodTabText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  payMethodTabTextActive: {
+    color: '#fff',
+  },
+  payMethodTabSub: {
+    fontSize: 11,
+    color: colors.textLight,
+    marginTop: 2,
+  },
+  payTotalBox: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  payTotalLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  payTotalAmount: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.primary,
+    marginVertical: 4,
+  },
+  payTotalBreakdown: {
+    fontSize: 11,
+    color: colors.textLight,
+  },
+  payoutInfoBox: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  payoutInfoText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 19,
+  },
+  networkCard: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  networkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  networkBadgeTrc: {
+    backgroundColor: '#e53935',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginRight: spacing.sm,
+  },
+  networkBadgeErc: {
+    backgroundColor: '#627eea',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginRight: spacing.sm,
+  },
+  networkName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  qrContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  walletAddress: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderRadius: 6,
+    fontFamily: 'monospace',
   },
   paymentInstructions: {
     backgroundColor: colors.surface,
