@@ -220,6 +220,28 @@ router.post(
   }
 );
 
+// POST /escrow/:id/delivery-photo - buyer uploads photo of received box
+router.post('/:id/delivery-photo', authenticate, upload.single('photo'), async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.buyer_id !== req.user.id) return res.status(403).json({ error: 'Only the buyer can upload delivery photos' });
+    if (e.status !== 'shipped') return res.status(400).json({ error: `Cannot upload photo in status: ${e.status}` });
+    if (!req.file) return res.status(400).json({ error: 'No photo provided' });
+
+    const { url } = await uploadImage(req.file.buffer, 'wholesalehub/delivery');
+    const field = !e.delivery_photo_url ? 'delivery_photo_url' : 'contents_photo_url';
+    await db.query(`UPDATE escrows SET ${field} = $1, updated_at = NOW() WHERE id = $2`, [url, req.params.id]);
+
+    res.json({ [field]: url, field });
+  } catch (err) {
+    console.error('Upload delivery photo error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // POST /escrow/:id/confirm-receipt - buyer confirms delivery
 router.post('/:id/confirm-receipt', authenticate, async (req, res) => {
   try {
@@ -229,6 +251,8 @@ router.post('/:id/confirm-receipt', authenticate, async (req, res) => {
     const e = escrow.rows[0];
     if (e.buyer_id !== req.user.id) return res.status(403).json({ error: 'Only the buyer can confirm receipt' });
     if (e.status !== 'shipped') return res.status(400).json({ error: `Cannot confirm receipt from status: ${e.status}` });
+    if (!e.delivery_photo_url) return res.status(400).json({ error: 'Please upload a photo of the received box first' });
+    if (!e.contents_photo_url) return res.status(400).json({ error: 'Please upload a photo of the product contents first' });
 
     const result = await db.query(
       `UPDATE escrows SET status = 'delivered', buyer_confirmed = TRUE, updated_at = NOW()
@@ -236,7 +260,7 @@ router.post('/:id/confirm-receipt', authenticate, async (req, res) => {
       [req.params.id]
     );
 
-    await logEvent(req.params.id, 'delivered', req.user.id, 'Buyer confirmed receipt');
+    await logEvent(req.params.id, 'delivered', req.user.id, 'Buyer confirmed receipt with delivery photos');
     sendPushNotification(e.seller_id, 'Delivery Confirmed', 'The buyer confirmed receipt. Awaiting admin to release payment.', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {

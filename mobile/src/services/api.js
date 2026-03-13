@@ -299,6 +299,21 @@ class ApiService {
     return this.request(`/escrow/${id}/ship`, { method: 'POST', body: JSON.stringify({ tracking_number: trackingNumber }) });
   }
 
+  async uploadDeliveryPhoto(escrowId, uri) {
+    const name = uri.split('/').pop();
+    const ext = name.split('.').pop() || 'jpg';
+    const formData = new FormData();
+    formData.append('photo', { uri, name: `delivery.${ext}`, type: `image/${ext === 'png' ? 'png' : 'jpeg'}` });
+    const response = await fetch(`${API_URL}/escrow/${escrowId}/delivery-photo`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  }
+
   confirmReceipt(id) {
     return this.request(`/escrow/${id}/confirm-receipt`, { method: 'POST' });
   }

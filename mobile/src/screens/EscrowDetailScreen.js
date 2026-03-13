@@ -48,6 +48,10 @@ export default function EscrowDetailScreen({ route, navigation }) {
   const [sellerPayoutMethod, setSellerPayoutMethod] = useState(null);
   const [shippingPhoto, setShippingPhoto] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [deliveryPhoto, setDeliveryPhoto] = useState(null);
+  const [contentsPhoto, setContentsPhoto] = useState(null);
+  const [deliveryPhotoUploading, setDeliveryPhotoUploading] = useState(false);
+  const [contentsPhotoUploading, setContentsPhotoUploading] = useState(false);
 
   useEffect(() => {
     loadEscrow();
@@ -137,6 +141,18 @@ export default function EscrowDetailScreen({ route, navigation }) {
           </View>
         )}
         {escrow.tracking_number && <DetailRow label="Tracking" value={escrow.tracking_number} />}
+        {escrow.delivery_photo_url && (
+          <View style={styles.shippingPhotoRow}>
+            <Text style={styles.detailLabel}>Delivery Photo (Box)</Text>
+            <Image source={{ uri: escrow.delivery_photo_url }} style={styles.shippingPhotoThumb} />
+          </View>
+        )}
+        {escrow.contents_photo_url && (
+          <View style={styles.shippingPhotoRow}>
+            <Text style={styles.detailLabel}>Delivery Photo (Contents)</Text>
+            <Image source={{ uri: escrow.contents_photo_url }} style={styles.shippingPhotoThumb} />
+          </View>
+        )}
         {escrow.wire_proof_url && <DetailRow label="Payment Proof" value={escrow.wire_proof_url} />}
         <DetailRow label="Created" value={new Date(escrow.created_at).toLocaleDateString()} />
       </View>
@@ -447,17 +463,151 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {isBuyer && escrow.status === 'shipped' && (
           <View style={styles.actionGroup}>
             <Text style={styles.actionHint}>
-              Tracking: {escrow.tracking_number}{'\n\n'}Once you receive the product and verify the condition, confirm receipt.
+              Tracking: {escrow.tracking_number}{'\n\n'}Once you receive the package, upload photos of the box and the contents inside, then confirm receipt.
             </Text>
+
+            {/* Seller's shipping photo */}
+            {escrow.shipping_photo_url && (
+              <View style={styles.refPhotoSection}>
+                <Text style={styles.refPhotoLabel}>Seller's Package Photo</Text>
+                <Image source={{ uri: escrow.shipping_photo_url }} style={styles.refPhotoImage} />
+              </View>
+            )}
+
+            {/* Delivery photo - box as received */}
+            <Text style={styles.photoLabel}>Photo of Box as Received *</Text>
+            {(deliveryPhoto || escrow.delivery_photo_url) ? (
+              <TouchableOpacity onPress={async () => {
+                const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+                if (!result.canceled) {
+                  setDeliveryPhotoUploading(true);
+                  try {
+                    await api.uploadDeliveryPhoto(id, result.assets[0].uri);
+                    setDeliveryPhoto(result.assets[0].uri);
+                    loadEscrow();
+                  } catch (err) { Alert.alert('Error', err.message); }
+                  finally { setDeliveryPhotoUploading(false); }
+                }
+              }}>
+                <Image source={{ uri: deliveryPhoto || escrow.delivery_photo_url }} style={styles.shippingPhotoPreview} />
+                <Text style={styles.photoChangeText}>Tap to change photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoButtons}>
+                <Button
+                  title="Take Photo"
+                  variant="outline"
+                  loading={deliveryPhotoUploading}
+                  onPress={async () => {
+                    const perm = await ImagePicker.requestCameraPermissionsAsync();
+                    if (!perm.granted) { Alert.alert('Error', 'Camera permission is required'); return; }
+                    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7 });
+                    if (!result.canceled) {
+                      setDeliveryPhotoUploading(true);
+                      try {
+                        await api.uploadDeliveryPhoto(id, result.assets[0].uri);
+                        setDeliveryPhoto(result.assets[0].uri);
+                        loadEscrow();
+                      } catch (err) { Alert.alert('Error', err.message); }
+                      finally { setDeliveryPhotoUploading(false); }
+                    }
+                  }}
+                  style={{ flex: 1, marginRight: spacing.xs }}
+                />
+                <Button
+                  title="Gallery"
+                  variant="outline"
+                  loading={deliveryPhotoUploading}
+                  onPress={async () => {
+                    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+                    if (!result.canceled) {
+                      setDeliveryPhotoUploading(true);
+                      try {
+                        await api.uploadDeliveryPhoto(id, result.assets[0].uri);
+                        setDeliveryPhoto(result.assets[0].uri);
+                        loadEscrow();
+                      } catch (err) { Alert.alert('Error', err.message); }
+                      finally { setDeliveryPhotoUploading(false); }
+                    }
+                  }}
+                  style={{ flex: 1, marginLeft: spacing.xs }}
+                />
+              </View>
+            )}
+
+            {/* Contents photo - product inside */}
+            <Text style={[styles.photoLabel, { marginTop: spacing.md }]}>Photo of Product Contents *</Text>
+            {(contentsPhoto || escrow.contents_photo_url) ? (
+              <TouchableOpacity onPress={async () => {
+                const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+                if (!result.canceled) {
+                  setContentsPhotoUploading(true);
+                  try {
+                    await api.uploadDeliveryPhoto(id, result.assets[0].uri);
+                    setContentsPhoto(result.assets[0].uri);
+                    loadEscrow();
+                  } catch (err) { Alert.alert('Error', err.message); }
+                  finally { setContentsPhotoUploading(false); }
+                }
+              }}>
+                <Image source={{ uri: contentsPhoto || escrow.contents_photo_url }} style={styles.shippingPhotoPreview} />
+                <Text style={styles.photoChangeText}>Tap to change photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoButtons}>
+                <Button
+                  title="Take Photo"
+                  variant="outline"
+                  loading={contentsPhotoUploading}
+                  onPress={async () => {
+                    const perm = await ImagePicker.requestCameraPermissionsAsync();
+                    if (!perm.granted) { Alert.alert('Error', 'Camera permission is required'); return; }
+                    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7 });
+                    if (!result.canceled) {
+                      setContentsPhotoUploading(true);
+                      try {
+                        await api.uploadDeliveryPhoto(id, result.assets[0].uri);
+                        setContentsPhoto(result.assets[0].uri);
+                        loadEscrow();
+                      } catch (err) { Alert.alert('Error', err.message); }
+                      finally { setContentsPhotoUploading(false); }
+                    }
+                  }}
+                  style={{ flex: 1, marginRight: spacing.xs }}
+                />
+                <Button
+                  title="Gallery"
+                  variant="outline"
+                  loading={contentsPhotoUploading}
+                  onPress={async () => {
+                    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+                    if (!result.canceled) {
+                      setContentsPhotoUploading(true);
+                      try {
+                        await api.uploadDeliveryPhoto(id, result.assets[0].uri);
+                        setContentsPhoto(result.assets[0].uri);
+                        loadEscrow();
+                      } catch (err) { Alert.alert('Error', err.message); }
+                      finally { setContentsPhotoUploading(false); }
+                    }
+                  }}
+                  style={{ flex: 1, marginLeft: spacing.xs }}
+                />
+              </View>
+            )}
+
             <Button
               title="Confirm Product Received"
               onPress={() => {
+                if (!escrow.delivery_photo_url && !deliveryPhoto) { Alert.alert('Error', 'Please upload a photo of the received box'); return; }
+                if (!escrow.contents_photo_url && !contentsPhoto) { Alert.alert('Error', 'Please upload a photo of the product contents'); return; }
                 Alert.alert('Confirm Receipt', 'Have you received the product and verified it matches the deal?', [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Confirm', onPress: () => performAction(() => api.confirmReceipt(id), 'Receipt confirmed! Admin will release payment.') },
                 ]);
               }}
               loading={actionLoading}
+              style={{ marginTop: spacing.md }}
             />
           </View>
         )}
@@ -861,6 +1011,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
     lineHeight: 18,
+  },
+  refPhotoSection: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  refPhotoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  refPhotoImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    backgroundColor: colors.border,
   },
   photoLabel: {
     fontSize: 14,
