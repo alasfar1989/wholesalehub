@@ -9,6 +9,26 @@ import Button from '../components/Button';
 import ListingCard from '../components/ListingCard';
 import { colors, spacing } from '../utils/theme';
 
+const BADGE_CONFIG = {
+  founder: { label: 'Verified Owner', bg: '#e8f5e9', text: '#2e7d32' },
+  top_rated: { label: 'Top Rated', bg: '#fff8e1', text: '#f57f17' },
+  trusted: { label: 'Trusted Trader', bg: '#e3f2fd', text: '#1565c0' },
+  active: { label: 'Active Seller', bg: '#f3e5f5', text: '#7b1fa2' },
+  rising: { label: 'Rising Star', bg: '#e0f7fa', text: '#00838f' },
+};
+
+function badgeLabel(badge) {
+  return BADGE_CONFIG[badge]?.label || badge;
+}
+function badgeStyle(badge) {
+  const c = BADGE_CONFIG[badge];
+  return c ? { backgroundColor: c.bg } : {};
+}
+function badgeTextStyle(badge) {
+  const c = BADGE_CONFIG[badge];
+  return c ? { color: c.text } : {};
+}
+
 export default function ProfileScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
   const [listings, setListings] = useState([]);
@@ -76,6 +96,11 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.avatarBadge}><Text style={styles.avatarBadgeText}>Edit</Text></View>
         </TouchableOpacity>
         <Text style={styles.name}>{user?.business_name}</Text>
+        {user?.badge && (
+          <View style={[styles.badge, badgeStyle(user.badge)]}>
+            <Text style={[styles.badgeText, badgeTextStyle(user.badge)]}>{badgeLabel(user.badge)}</Text>
+          </View>
+        )}
         <Text style={styles.info}>{user?.city} - {user?.category}</Text>
         <Text style={styles.phone}>{user?.phone}</Text>
 
@@ -212,6 +237,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: colors.text,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   info: {
     fontSize: 14,

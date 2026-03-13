@@ -5,6 +5,8 @@ const { authenticate, requireAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { sendPushNotification } = require('../utils/pushNotifications');
 
+const { recalcBadge } = require('../utils/badges');
+
 const router = express.Router();
 const ESCROW_FEE_PERCENT = 0.005; // 0.5%
 const WIRE_FEE = 25; // flat wire transfer fee
@@ -237,6 +239,9 @@ router.post('/:id/release-payment', authenticate, requireAdmin, async (req, res)
       `Released $${e.seller_payout} to seller. Fee collected: $${e.escrow_fee}${e.wire_fee > 0 ? ` + $${e.wire_fee} wire fee` : ''}`);
     sendPushNotification(e.seller_id, 'Payment Released', `$${e.seller_payout} has been released to you.`, { type: 'escrow', escrowId: req.params.id });
     sendPushNotification(e.buyer_id, 'Escrow Completed', 'Your escrow transaction is complete.', { type: 'escrow', escrowId: req.params.id });
+    // Recalc badges for both parties
+    recalcBadge(e.buyer_id);
+    recalcBadge(e.seller_id);
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Release payment error:', err);
@@ -313,6 +318,8 @@ router.post('/:id/resolve-dispute', authenticate, requireAdmin, async (req, res)
       await logEvent(req.params.id, 'dispute_resolved_release', req.user.id, 'Admin released payment to seller');
       sendPushNotification(e.seller_id, 'Dispute Resolved', `Payment of $${e.seller_payout} released to you.`, { type: 'escrow', escrowId: req.params.id });
       sendPushNotification(e.buyer_id, 'Dispute Resolved', 'Admin resolved the dispute. Payment released to seller.', { type: 'escrow', escrowId: req.params.id });
+      recalcBadge(e.buyer_id);
+      recalcBadge(e.seller_id);
       res.json({ escrow: result.rows[0] });
     } else if (resolution === 'refund') {
       const result = await db.query(

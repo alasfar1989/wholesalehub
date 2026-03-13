@@ -4,6 +4,8 @@ const db = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
+const { recalcBadge } = require('../utils/badges');
+
 const router = express.Router();
 
 // Helper: recalculate user's rating from approved ratings only
@@ -50,6 +52,7 @@ router.put('/:id/approve', authenticate, requireAdmin, async (req, res) => {
 
     await db.query("UPDATE ratings SET status = 'approved' WHERE id = $1", [req.params.id]);
     await recalcRating(rating.rows[0].to_user_id);
+    await recalcBadge(rating.rows[0].to_user_id);
 
     res.json({ message: 'Rating approved' });
   } catch (err) {

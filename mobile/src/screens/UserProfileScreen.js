@@ -5,6 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
+const BADGE_CONFIG = {
+  founder: { label: 'Verified Owner', bg: '#e8f5e9', text: '#2e7d32' },
+  top_rated: { label: 'Top Rated', bg: '#fff8e1', text: '#f57f17' },
+  trusted: { label: 'Trusted Trader', bg: '#e3f2fd', text: '#1565c0' },
+  active: { label: 'Active Seller', bg: '#f3e5f5', text: '#7b1fa2' },
+  rising: { label: 'Rising Star', bg: '#e0f7fa', text: '#00838f' },
+};
+
 export default function UserProfileScreen({ route, navigation }) {
   const id = route.params.userId || route.params.id;
   const { user: currentUser } = useAuth();
@@ -56,6 +64,11 @@ export default function UserProfileScreen({ route, navigation }) {
           </View>
         )}
         <Text style={styles.name}>{profile.business_name}</Text>
+        {profile.badge && BADGE_CONFIG[profile.badge] && (
+          <View style={[styles.badge, { backgroundColor: BADGE_CONFIG[profile.badge].bg }]}>
+            <Text style={[styles.badgeText, { color: BADGE_CONFIG[profile.badge].text }]}>{BADGE_CONFIG[profile.badge].label}</Text>
+          </View>
+        )}
         <Text style={styles.info}>{profile.city} - {profile.category}</Text>
         {profile.rating_score > 0 && (
           <Text style={styles.rating}>
@@ -138,6 +151,16 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 30, fontWeight: '700', color: '#fff' },
   name: { fontSize: 22, fontWeight: '700', color: colors.text },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   info: { fontSize: 14, color: colors.textSecondary, marginTop: 2, textTransform: 'capitalize' },
   rating: { fontSize: 15, color: colors.star, marginTop: spacing.sm },
   actions: { flexDirection: 'row', marginTop: spacing.md, width: '100%' },
