@@ -6,8 +6,11 @@ const validate = require('../middleware/validate');
 const { sendPushNotification } = require('../utils/pushNotifications');
 
 const { recalcBadge } = require('../utils/badges');
+const multer = require('multer');
+const { uploadImage } = require('../utils/cloudinary');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const ESCROW_FEE_PERCENT = 0.005; // 0.5%
 const WIRE_FEE = 25; // flat wire transfer fee
 
@@ -164,6 +167,27 @@ router.post('/:id/payment-received', authenticate, requireAdmin, async (req, res
   }
 });
 
+// POST /escrow/:id/shipping-photo - seller uploads photo of package
+router.post('/:id/shipping-photo', authenticate, upload.single('photo'), async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.seller_id !== req.user.id) return res.status(403).json({ error: 'Only the seller can upload shipping photo' });
+    if (e.status !== 'payment_received') return res.status(400).json({ error: `Cannot upload photo in status: ${e.status}` });
+    if (!req.file) return res.status(400).json({ error: 'No photo provided' });
+
+    const { url } = await uploadImage(req.file.buffer, 'wholesalehub/shipping');
+    await db.query('UPDATE escrows SET shipping_photo_url = $1, updated_at = NOW() WHERE id = $2', [url, req.params.id]);
+
+    res.json({ shipping_photo_url: url });
+  } catch (err) {
+    console.error('Upload shipping photo error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // POST /escrow/:id/ship - seller uploads tracking
 router.post(
   '/:id/ship',
@@ -178,6 +202,7 @@ router.post(
       const e = escrow.rows[0];
       if (e.seller_id !== req.user.id) return res.status(403).json({ error: 'Only the seller can ship' });
       if (e.status !== 'payment_received') return res.status(400).json({ error: `Cannot ship from status: ${e.status}` });
+      if (!e.shipping_photo_url) return res.status(400).json({ error: 'Please upload a photo of the package first' });
 
       const result = await db.query(
         `UPDATE escrows SET status = 'shipped', tracking_number = $1, updated_at = NOW()

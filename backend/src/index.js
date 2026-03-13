@@ -103,6 +103,7 @@ async function applySchemaUpdates() {
     await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS buyer_total DECIMAL(12,2)');
     await db.query("ALTER TABLE escrows ADD COLUMN IF NOT EXISTS seller_payout_method VARCHAR(20) DEFAULT 'wire'");
     await db.query("ALTER TABLE escrows ADD COLUMN IF NOT EXISTS fee_payer VARCHAR(10) DEFAULT 'buyer'");
+    await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS shipping_photo_url TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)');

@@ -280,6 +280,21 @@ class ApiService {
     return this.request(`/escrow/${id}/payment-received`, { method: 'POST', body: JSON.stringify({ wire_instructions: wireInstructions }) });
   }
 
+  async uploadShippingPhoto(escrowId, uri) {
+    const name = uri.split('/').pop();
+    const ext = name.split('.').pop() || 'jpg';
+    const formData = new FormData();
+    formData.append('photo', { uri, name: `shipping.${ext}`, type: `image/${ext === 'png' ? 'png' : 'jpeg'}` });
+    const response = await fetch(`${API_URL}/escrow/${escrowId}/shipping-photo`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.token}` },
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  }
+
   shipEscrow(id, trackingNumber) {
     return this.request(`/escrow/${id}/ship`, { method: 'POST', body: JSON.stringify({ tracking_number: trackingNumber }) });
   }

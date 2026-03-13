@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Keyboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Keyboard, Image } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
@@ -45,6 +46,8 @@ export default function EscrowDetailScreen({ route, navigation }) {
   const [wireInstructions, setWireInstructions] = useState('');
   const [selectedPayMethod, setSelectedPayMethod] = useState(null);
   const [sellerPayoutMethod, setSellerPayoutMethod] = useState(null);
+  const [shippingPhoto, setShippingPhoto] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
     loadEscrow();
@@ -126,6 +129,12 @@ export default function EscrowDetailScreen({ route, navigation }) {
         )}
         {escrow.seller_payout_method && (
           <DetailRow label="Seller Payout" value={escrow.seller_payout_method === 'usdt' ? 'USDT' : 'Wire Transfer'} />
+        )}
+        {escrow.shipping_photo_url && (
+          <View style={styles.shippingPhotoRow}>
+            <Text style={styles.detailLabel}>Package Photo</Text>
+            <Image source={{ uri: escrow.shipping_photo_url }} style={styles.shippingPhotoThumb} />
+          </View>
         )}
         {escrow.tracking_number && <DetailRow label="Tracking" value={escrow.tracking_number} />}
         {escrow.wire_proof_url && <DetailRow label="Payment Proof" value={escrow.wire_proof_url} />}
@@ -351,20 +360,85 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {/* Seller ships */}
         {isSeller && escrow.status === 'payment_received' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>Payment has been verified. Ship the product and enter the tracking number.</Text>
+            <Text style={styles.actionHint}>Payment has been verified. Take a photo of the package and enter the tracking number.</Text>
+
+            {/* Shipping photo */}
+            <Text style={styles.photoLabel}>Photo of Package *</Text>
+            {(shippingPhoto || escrow.shipping_photo_url) ? (
+              <TouchableOpacity onPress={async () => {
+                const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+                if (!result.canceled) {
+                  setPhotoUploading(true);
+                  try {
+                    const data = await api.uploadShippingPhoto(id, result.assets[0].uri);
+                    setShippingPhoto(data.shipping_photo_url);
+                    loadEscrow();
+                  } catch (err) { Alert.alert('Error', err.message); }
+                  finally { setPhotoUploading(false); }
+                }
+              }}>
+                <Image source={{ uri: shippingPhoto || escrow.shipping_photo_url }} style={styles.shippingPhotoPreview} />
+                <Text style={styles.photoChangeText}>Tap to change photo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.photoButtons}>
+                <Button
+                  title="Take Photo"
+                  variant="outline"
+                  loading={photoUploading}
+                  onPress={async () => {
+                    const perm = await ImagePicker.requestCameraPermissionsAsync();
+                    if (!perm.granted) { Alert.alert('Error', 'Camera permission is required'); return; }
+                    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7 });
+                    if (!result.canceled) {
+                      setPhotoUploading(true);
+                      try {
+                        const data = await api.uploadShippingPhoto(id, result.assets[0].uri);
+                        setShippingPhoto(data.shipping_photo_url);
+                        loadEscrow();
+                      } catch (err) { Alert.alert('Error', err.message); }
+                      finally { setPhotoUploading(false); }
+                    }
+                  }}
+                  style={{ flex: 1, marginRight: spacing.xs }}
+                />
+                <Button
+                  title="Choose from Gallery"
+                  variant="outline"
+                  loading={photoUploading}
+                  onPress={async () => {
+                    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.7 });
+                    if (!result.canceled) {
+                      setPhotoUploading(true);
+                      try {
+                        const data = await api.uploadShippingPhoto(id, result.assets[0].uri);
+                        setShippingPhoto(data.shipping_photo_url);
+                        loadEscrow();
+                      } catch (err) { Alert.alert('Error', err.message); }
+                      finally { setPhotoUploading(false); }
+                    }
+                  }}
+                  style={{ flex: 1, marginLeft: spacing.xs }}
+                />
+              </View>
+            )}
+
             <Input
-              label="Tracking Number"
+              label="Tracking Number *"
               placeholder="Enter shipping tracking number"
               value={tracking}
               onChangeText={setTracking}
+              style={{ marginTop: spacing.sm }}
             />
             <Button
               title="Mark as Shipped"
               onPress={() => {
+                if (!escrow.shipping_photo_url && !shippingPhoto) { Alert.alert('Error', 'Please upload a photo of the package'); return; }
                 if (!tracking.trim()) { Alert.alert('Error', 'Please enter tracking number'); return; }
                 performAction(() => api.shipEscrow(id, tracking), 'Marked as shipped!');
               }}
               loading={actionLoading}
+              style={{ marginTop: spacing.sm }}
             />
           </View>
         )}
@@ -787,6 +861,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
     lineHeight: 18,
+  },
+  photoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  photoButtons: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  shippingPhotoPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    backgroundColor: colors.border,
+  },
+  photoChangeText: {
+    fontSize: 12,
+    color: colors.textLight,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  shippingPhotoRow: {
+    paddingVertical: spacing.xs + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  shippingPhotoThumb: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginTop: spacing.xs,
+    backgroundColor: colors.border,
   },
   completedText: {
     fontSize: 14,
