@@ -97,6 +97,10 @@ class ApiService {
     return data;
   }
 
+  deleteMyAccount() {
+    return this.request('/users/me', { method: 'DELETE' });
+  }
+
   updatePushToken(push_token) {
     return this.request('/users/me/push-token', { method: 'PUT', body: JSON.stringify({ push_token }) });
   }

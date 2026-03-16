@@ -81,6 +81,37 @@ export default function ProfileScreen({ navigation }) {
     ]);
   }
 
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This will remove all your data including listings, messages, and references. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Final Confirmation', 'Type DELETE to confirm account deletion.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete My Account',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await api.deleteMyAccount();
+                    logout();
+                  } catch (err) {
+                    Alert.alert('Error', err.message);
+                  }
+                },
+              },
+            ]);
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -126,6 +157,9 @@ export default function ProfileScreen({ navigation }) {
             style={{ flex: 1 }}
           />
         </View>
+        <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccount}>
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -274,6 +308,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: spacing.md,
     width: '100%',
+  },
+  deleteAccount: {
+    marginTop: spacing.md,
+  },
+  deleteAccountText: {
+    fontSize: 13,
+    color: colors.textLight,
+    textDecorationLine: 'underline',
   },
   tabs: {
     flexDirection: 'row',

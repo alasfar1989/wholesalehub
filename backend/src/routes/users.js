@@ -141,4 +141,24 @@ router.put('/me/push-token', authenticate, async (req, res) => {
   }
 });
 
+// DELETE /users/me - delete own account
+router.delete('/me', authenticate, async (req, res) => {
+  try {
+    // Don't allow deletion if user has active escrows
+    const active = await db.query(
+      "SELECT COUNT(*) as count FROM escrows WHERE (buyer_id = $1 OR seller_id = $1) AND status NOT IN ('completed', 'cancelled')",
+      [req.user.id]
+    );
+    if (parseInt(active.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'Cannot delete account while you have active escrows. Please complete or cancel them first.' });
+    }
+
+    await db.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.json({ success: true, message: 'Account deleted' });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
