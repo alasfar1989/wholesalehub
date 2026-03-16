@@ -313,8 +313,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   deleteAccountText: {
-    fontSize: 13,
-    color: colors.textLight,
+    fontSize: 14,
+    color: colors.error,
     textDecorationLine: 'underline',
   },
   tabs: {
