@@ -48,9 +48,16 @@ export default function ChatScreen({ route }) {
     return (
       <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
         <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{item.content}</Text>
-        <Text style={[styles.time, isMine && styles.timeMine]}>
-          {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
+        <View style={styles.timeRow}>
+          <Text style={[styles.time, isMine && styles.timeMine]}>
+            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          {isMine && (
+            <Text style={[styles.readReceipt, item.is_read && styles.readReceiptRead]}>
+              {item.is_read ? ' ✓✓' : ' ✓'}
+            </Text>
+          )}
+        </View>
       </View>
     );
   }
@@ -123,8 +130,11 @@ const styles = StyleSheet.create({
   },
   messageText: { fontSize: 15, color: colors.text },
   messageTextMine: { color: '#fff' },
-  time: { fontSize: 11, color: colors.textLight, marginTop: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  time: { fontSize: 11, color: colors.textLight },
   timeMine: { color: 'rgba(255,255,255,0.7)' },
+  readReceipt: { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
+  readReceiptRead: { color: '#90caf9' },
   inputRow: {
     flexDirection: 'row',
     padding: spacing.sm,

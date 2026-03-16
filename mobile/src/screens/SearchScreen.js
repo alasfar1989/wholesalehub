@@ -12,6 +12,9 @@ export default function SearchScreen({ navigation }) {
   const [type, setType] = useState('');
   const [city, setCity] = useState('');
   const [category, setCategory] = useState('');
+  const [condition, setCondition] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -25,6 +28,9 @@ export default function SearchScreen({ navigation }) {
       if (type) params.type = type;
       if (city) params.city = city;
       if (category) params.category = category;
+      if (condition) params.condition = condition;
+      if (minPrice) params.min_price = minPrice;
+      if (maxPrice) params.max_price = maxPrice;
 
       const data = await api.searchListings(params);
       setResults(data.listings);
@@ -72,6 +78,37 @@ export default function SearchScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        <View style={styles.typeRow}>
+          {['', 'new', 'used', 'refurbished'].map(c => (
+            <TouchableOpacity
+              key={c}
+              style={[styles.typeBtn, condition === c && styles.typeBtnActive]}
+              onPress={() => setCondition(c)}
+            >
+              <Text style={[styles.typeBtnText, condition === c && styles.typeBtnTextActive]}>
+                {c ? c.charAt(0).toUpperCase() + c.slice(1) : 'Any'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.row}>
+          <Input
+            placeholder="Min Price"
+            value={minPrice}
+            onChangeText={setMinPrice}
+            keyboardType="numeric"
+            style={{ flex: 1, marginRight: spacing.sm, marginBottom: spacing.sm }}
+          />
+          <Input
+            placeholder="Max Price"
+            value={maxPrice}
+            onChangeText={setMaxPrice}
+            keyboardType="numeric"
+            style={{ flex: 1, marginBottom: spacing.sm }}
+          />
         </View>
 
         <Button title="Search" onPress={handleSearch} loading={loading} />

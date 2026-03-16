@@ -93,6 +93,15 @@ router.post(
         return res.status(404).json({ error: 'User not found' });
       }
 
+      // Check if either user has blocked the other
+      const blocked = await db.query(
+        'SELECT id FROM blocks WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)',
+        [req.user.id, to_user_id]
+      );
+      if (blocked.rows.length > 0) {
+        return res.status(403).json({ error: 'Cannot send message to this user' });
+      }
+
       const result = await db.query(
         `INSERT INTO messages (from_user_id, to_user_id, content)
          VALUES ($1, $2, $3) RETURNING *`,
@@ -102,7 +111,7 @@ router.post(
       // Send push notification to recipient
       const sender = await db.query('SELECT business_name FROM users WHERE id = $1', [req.user.id]);
       const senderName = sender.rows[0]?.business_name || 'Someone';
-      sendPushNotification(to_user_id, `Message from ${senderName}`, content.substring(0, 100), { type: 'message', userId: req.user.id });
+      sendPushNotification(to_user_id, `Message from ${senderName}`, content.substring(0, 100), { type: 'message', userId: req.user.id, name: senderName });
 
       res.status(201).json({ message: result.rows[0] });
     } catch (err) {

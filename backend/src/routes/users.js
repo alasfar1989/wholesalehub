@@ -34,6 +34,20 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
+// GET /users/me/blocks - get blocked users
+router.get('/me/blocks', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT b.blocked_id, u.business_name FROM blocks b JOIN users u ON b.blocked_id = u.id WHERE b.blocker_id = $1',
+      [req.user.id]
+    );
+    res.json({ blocks: result.rows });
+  } catch (err) {
+    console.error('Get blocks error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /users/:id - get user profile
 router.get('/:id', async (req, res) => {
   try {
@@ -137,6 +151,58 @@ router.put('/me/push-token', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Update push token error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /users/:id/report - report a user
+router.post('/:id/report', authenticate, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Reason is required' });
+    }
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot report yourself' });
+    }
+    await db.query(
+      'INSERT INTO reports (reporter_id, reported_id, reason) VALUES ($1, $2, $3)',
+      [req.user.id, req.params.id, reason.trim()]
+    );
+    res.json({ success: true, message: 'Report submitted' });
+  } catch (err) {
+    console.error('Report user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /users/:id/block - block a user
+router.post('/:id/block', authenticate, async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot block yourself' });
+    }
+    await db.query(
+      'INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.id, req.params.id]
+    );
+    res.json({ success: true, message: 'User blocked' });
+  } catch (err) {
+    console.error('Block user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /users/:id/block - unblock a user
+router.delete('/:id/block', authenticate, async (req, res) => {
+  try {
+    await db.query(
+      'DELETE FROM blocks WHERE blocker_id = $1 AND blocked_id = $2',
+      [req.user.id, req.params.id]
+    );
+    res.json({ success: true, message: 'User unblocked' });
+  } catch (err) {
+    console.error('Unblock user error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

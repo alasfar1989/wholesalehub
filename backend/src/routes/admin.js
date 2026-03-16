@@ -222,4 +222,23 @@ router.delete('/listings/:id', async (req, res) => {
   }
 });
 
+// GET /admin/reports - view all user reports
+router.get('/reports', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT r.*,
+              reporter.business_name as reporter_name,
+              reported.business_name as reported_name
+       FROM reports r
+       JOIN users reporter ON r.reporter_id = reporter.id
+       JOIN users reported ON r.reported_id = reported.id
+       ORDER BY r.created_at DESC`
+    );
+    res.json({ reports: result.rows });
+  } catch (err) {
+    console.error('Admin reports error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

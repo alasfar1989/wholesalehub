@@ -59,6 +59,9 @@ const path = require('path');
 app.get('/privacy', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'privacy.html'));
 });
+app.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages', 'terms.html'));
+});
 
 // Health check
 app.get('/health', (req, res) => {
@@ -125,6 +128,25 @@ async function applySchemaUpdates() {
       buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS reports (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reported_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS blocks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      UNIQUE(blocker_id, blocked_id)
+    )`);
+    await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE');
+    // Set expiration for existing listings that don't have one (30 days from creation)
+    await db.query("UPDATE listings SET expires_at = created_at + INTERVAL '30 days' WHERE expires_at IS NULL");
+    // Auto-deactivate expired listings
+    await db.query("UPDATE listings SET is_active = FALSE WHERE expires_at < NOW() AND is_active = TRUE");
     console.log('Schema updates applied.');
   } catch (err) {
     console.error('Schema update error (non-fatal):', err.message);

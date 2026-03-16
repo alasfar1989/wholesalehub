@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Keyboard, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Keyboard, Image, TouchableOpacity } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -77,13 +77,55 @@ export default function UserProfileScreen({ route, navigation }) {
         )}
 
         {!isOwnProfile && (
-          <View style={styles.actions}>
-            <Button
-              title="Message"
-              onPress={() => navigation.navigate('Chat', { userId: id, name: profile.business_name })}
-              style={{ flex: 1 }}
-            />
-          </View>
+          <>
+            <View style={styles.actions}>
+              <Button
+                title="Message"
+                onPress={() => navigation.navigate('Chat', { userId: id, name: profile.business_name })}
+                style={{ flex: 1 }}
+              />
+            </View>
+            <View style={styles.reportRow}>
+              <TouchableOpacity onPress={() => {
+                Alert.prompt('Report User', 'Describe the reason for reporting:', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Report',
+                    onPress: async (reason) => {
+                      if (!reason?.trim()) return;
+                      try {
+                        await api.reportUser(id, reason);
+                        Alert.alert('Reported', 'Thank you. We will review this report.');
+                      } catch (err) {
+                        Alert.alert('Error', err.message);
+                      }
+                    },
+                  },
+                ], 'plain-text');
+              }}>
+                <Text style={styles.reportText}>Report</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => {
+                Alert.alert('Block User', `Block ${profile.business_name}? They won't be able to message you.`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Block',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await api.blockUser(id);
+                        Alert.alert('Blocked', `${profile.business_name} has been blocked.`);
+                      } catch (err) {
+                        Alert.alert('Error', err.message);
+                      }
+                    },
+                  },
+                ]);
+              }}>
+                <Text style={styles.blockText}>Block</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </View>
 
@@ -177,5 +219,13 @@ const styles = StyleSheet.create({
   cardStars: { fontSize: 14, color: colors.star },
   cardComment: { fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs },
   cardDate: { fontSize: 12, color: colors.textLight, marginTop: spacing.xs },
+  reportRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: spacing.md,
+  },
+  reportText: { fontSize: 14, color: colors.textSecondary, textDecorationLine: 'underline' },
+  blockText: { fontSize: 14, color: colors.error, textDecorationLine: 'underline' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.lg },
 });

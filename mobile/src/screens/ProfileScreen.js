@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
@@ -34,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [references, setReferences] = useState([]);
   const [tab, setTab] = useState('listings');
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,7 +115,21 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await Promise.all([loadData(), refreshUser()]);
+            setRefreshing(false);
+          }}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={styles.profileCard}>
         <TouchableOpacity onPress={handleAvatarPick} style={styles.avatarWrap}>
           {user?.avatar_url ? (

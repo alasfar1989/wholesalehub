@@ -101,6 +101,18 @@ class ApiService {
     return this.request('/users/me', { method: 'DELETE' });
   }
 
+  reportUser(userId, reason) {
+    return this.request(`/users/${userId}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
+  }
+
+  blockUser(userId) {
+    return this.request(`/users/${userId}/block`, { method: 'POST' });
+  }
+
+  unblockUser(userId) {
+    return this.request(`/users/${userId}/block`, { method: 'DELETE' });
+  }
+
   updatePushToken(push_token) {
     return this.request('/users/me/push-token', { method: 'PUT', body: JSON.stringify({ push_token }) });
   }

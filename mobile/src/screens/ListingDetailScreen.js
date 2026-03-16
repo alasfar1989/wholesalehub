@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Image, Dimensions, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, Image, Dimensions, StyleSheet, Alert, Linking, Share, TouchableOpacity, Modal } from 'react-native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -10,6 +10,8 @@ export default function ListingDetailScreen({ route, navigation }) {
   const { user } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [galleryVisible, setGalleryVisible] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   useEffect(() => {
     loadListing();
@@ -50,6 +52,15 @@ export default function ListingDetailScreen({ route, navigation }) {
     }
   }
 
+  async function handleShare() {
+    try {
+      const price = listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price';
+      await Share.share({
+        message: `Check out this listing on WholesaleHub!\n\n${listing.title}\nPrice: ${price}\nCondition: ${listing.condition}\nQuantity: ${listing.quantity}\n\nPosted by ${listing.business_name}`,
+      });
+    } catch {}
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -75,15 +86,29 @@ export default function ListingDetailScreen({ route, navigation }) {
       {listing.photos && listing.photos.length > 0 && (
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
           {listing.photos.map((photo, i) => (
-            <Image
-              key={photo.id || i}
-              source={{ uri: photo.photo_url }}
-              style={styles.photoFull}
-              resizeMode="cover"
-            />
+            <TouchableOpacity key={photo.id || i} activeOpacity={0.9} onPress={() => { setGalleryIndex(i); setGalleryVisible(true); }}>
+              <Image source={{ uri: photo.photo_url }} style={styles.photoFull} resizeMode="cover" />
+            </TouchableOpacity>
           ))}
         </ScrollView>
       )}
+
+      {/* Fullscreen Gallery Modal */}
+      <Modal visible={galleryVisible} transparent animationType="fade">
+        <View style={styles.galleryOverlay}>
+          <TouchableOpacity style={styles.galleryClose} onPress={() => setGalleryVisible(false)}>
+            <Text style={styles.galleryCloseText}>Close</Text>
+          </TouchableOpacity>
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: galleryIndex * Dimensions.get('window').width, y: 0 }}>
+            {(listing.photos || []).map((photo, i) => (
+              <Image key={photo.id || i} source={{ uri: photo.photo_url }} style={styles.galleryImage} resizeMode="contain" />
+            ))}
+          </ScrollView>
+          <Text style={styles.galleryCounter}>
+            {listing.photos ? `${galleryIndex + 1} / ${listing.photos.length}` : ''}
+          </Text>
+        </View>
+      </Modal>
 
       <View style={styles.innerContent}>
         <View style={styles.headerRow}>
@@ -99,9 +124,14 @@ export default function ListingDetailScreen({ route, navigation }) {
 
         <Text style={styles.title}>{listing.title}</Text>
 
-        <Text style={styles.price}>
-          {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
-        </Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>
+            {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
+          </Text>
+          <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
+            <Text style={styles.shareBtnText}>Share</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.detailsGrid}>
           <DetailItem label="Quantity" value={listing.quantity} />
@@ -292,7 +322,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: colors.primary,
-    marginBottom: spacing.md,
   },
   detailsGrid: {
     flexDirection: 'row',
@@ -358,6 +387,50 @@ const styles = StyleSheet.create({
   ownerActions: {
     flexDirection: 'row',
     marginBottom: spacing.md,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  shareBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  shareBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  galleryOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+  },
+  galleryClose: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  galleryCloseText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  galleryImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.7,
+  },
+  galleryCounter: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 14,
+    marginTop: 10,
   },
   date: {
     fontSize: 12,

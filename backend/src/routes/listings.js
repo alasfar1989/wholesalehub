@@ -20,14 +20,14 @@ router.get('/', async (req, res) => {
       `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
        FROM listings l
        JOIN users u ON l.user_id = u.id
-       WHERE l.is_active = TRUE AND u.is_suspended = FALSE
+       WHERE l.is_active = TRUE AND u.is_suspended = FALSE AND (l.expires_at IS NULL OR l.expires_at > NOW())
        ORDER BY l.is_featured DESC, l.created_at DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 
     const countResult = await db.query(
-      'SELECT COUNT(*) FROM listings l JOIN users u ON l.user_id = u.id WHERE l.is_active = TRUE AND u.is_suspended = FALSE'
+      'SELECT COUNT(*) FROM listings l JOIN users u ON l.user_id = u.id WHERE l.is_active = TRUE AND u.is_suspended = FALSE AND (l.expires_at IS NULL OR l.expires_at > NOW())'
     );
 
     res.json({
@@ -88,7 +88,7 @@ router.get('/search', async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    let whereClause = 'l.is_active = TRUE AND u.is_suspended = FALSE';
+    let whereClause = 'l.is_active = TRUE AND u.is_suspended = FALSE AND (l.expires_at IS NULL OR l.expires_at > NOW())';
     const values = [];
     let paramCount = 0;
 
@@ -111,6 +111,21 @@ router.get('/search', async (req, res) => {
       paramCount++;
       whereClause += ` AND l.category ILIKE $${paramCount}`;
       values.push(`%${category}%`);
+    }
+    if (req.query.condition) {
+      paramCount++;
+      whereClause += ` AND l.condition ILIKE $${paramCount}`;
+      values.push(req.query.condition);
+    }
+    if (req.query.min_price) {
+      paramCount++;
+      whereClause += ` AND l.price >= $${paramCount}`;
+      values.push(parseFloat(req.query.min_price));
+    }
+    if (req.query.max_price) {
+      paramCount++;
+      whereClause += ` AND l.price <= $${paramCount}`;
+      values.push(parseFloat(req.query.max_price));
     }
 
     paramCount++;
@@ -196,8 +211,8 @@ router.post(
       const { type, title, description, price, quantity, condition, category, city } = req.body;
 
       const result = await db.query(
-        `INSERT INTO listings (user_id, type, title, description, price, quantity, condition, category, city)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO listings (user_id, type, title, description, price, quantity, condition, category, city, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + INTERVAL '30 days')
          RETURNING *`,
         [
           req.user.id,

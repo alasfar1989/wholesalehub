@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import api from '../services/api';
+import { navigate } from '../navigation/navigationRef';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -63,10 +64,11 @@ export function AuthProvider({ children }) {
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      // User tapped on a notification - could navigate to relevant screen
       const data = response.notification.request.content.data;
       if (data?.type === 'escrow' && data?.escrowId) {
-        // Navigation handled by the app's navigation ref if needed
+        navigate('EscrowDetail', { id: data.escrowId });
+      } else if (data?.type === 'message' && data?.userId) {
+        navigate('Chat', { userId: data.userId, name: data.name || 'Chat' });
       }
     });
 
