@@ -358,6 +358,10 @@ class ApiService {
     return this.request(`/escrow/${id}/inspection-failed`, { method: 'POST', body: JSON.stringify({ reason }) });
   }
 
+  depositPaid(id) {
+    return this.request(`/escrow/${id}/deposit-paid`, { method: 'POST' });
+  }
+
   releasePayment(id) {
     return this.request(`/escrow/${id}/release-payment`, { method: 'POST' });
   }

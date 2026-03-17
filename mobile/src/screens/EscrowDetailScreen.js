@@ -10,6 +10,7 @@ import { colors, spacing } from '../utils/theme';
 
 const STATUS_LABELS = {
   pending_seller: 'Awaiting Seller Confirmation',
+  deposit_pending: 'Awaiting Seller Deposit',
   pending_payment: 'Awaiting Buyer Payment',
   payment_received: 'Payment Verified - Express Ship to Warehouse',
   shipped_to_warehouse: 'Shipped to Warehouse',
@@ -24,6 +25,7 @@ const STATUS_LABELS = {
 
 const STATUS_COLORS = {
   pending_seller: colors.warning,
+  deposit_pending: colors.warning,
   pending_payment: colors.warning,
   payment_received: colors.accent,
   shipped_to_warehouse: colors.wtb,
@@ -217,7 +219,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
                 }
                 performAction(
                   () => api.confirmEscrow(id, sellerPayoutMethod),
-                  'Deal confirmed! Buyer can now send payment.'
+                  'Deal confirmed! Please pay your security deposit to proceed.'
                 );
               }}
               loading={actionLoading}
@@ -229,6 +231,62 @@ export default function EscrowDetailScreen({ route, navigation }) {
               onPress={() => performAction(() => api.cancelEscrow(id), 'Escrow cancelled.')}
               loading={actionLoading}
               style={{ marginTop: spacing.sm }}
+            />
+          </View>
+        )}
+
+        {/* Seller: deposit pending - show payment instructions */}
+        {isSeller && escrow.status === 'deposit_pending' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              You confirmed the deal! Before the buyer can pay, you need to pay your security deposit of ${Number(escrow.seller_deposit).toFixed(2)}.
+              {'\n\n'}Pay via one of these methods:
+              {'\n'}• Zelle: Cpwireless21@gmail.com
+              {'\n'}• Venmo: @CPWireless1
+              {'\n'}• Cash (in person at warehouse)
+              {'\n\n'}Include your escrow ID ({escrow.id.slice(0, 8)}...) as memo/note.
+              {'\n\n'}Once paid, the admin will verify and unlock the buyer payment step.
+              {'\n\n'}This deposit is fully refundable after your product passes warehouse inspection.
+            </Text>
+            <Button
+              title="Cancel Escrow"
+              variant="outline"
+              onPress={() => {
+                Alert.alert('Cancel Escrow', 'Are you sure?', [
+                  { text: 'No', style: 'cancel' },
+                  { text: 'Yes', style: 'destructive', onPress: () => performAction(() => api.cancelEscrow(id), 'Escrow cancelled.') },
+                ]);
+              }}
+              loading={actionLoading}
+              style={{ marginTop: spacing.sm }}
+            />
+          </View>
+        )}
+
+        {/* Buyer: deposit pending - waiting */}
+        {isBuyer && escrow.status === 'deposit_pending' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              The seller has confirmed the deal. They are paying their security deposit. You'll be notified when it's time to send your payment.
+            </Text>
+          </View>
+        )}
+
+        {/* Admin: mark deposit as paid */}
+        {isAdmin && escrow.status === 'deposit_pending' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>
+              Seller needs to pay a ${Number(escrow.seller_deposit).toFixed(2)} security deposit.{'\n'}Verify you received the deposit, then mark as paid.
+            </Text>
+            <Button
+              title={`Mark Deposit Paid ($${Number(escrow.seller_deposit).toFixed(2)})`}
+              onPress={() => {
+                Alert.alert('Verify Deposit', `Confirm you received $${Number(escrow.seller_deposit).toFixed(2)} deposit from ${escrow.seller_name}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Confirm', onPress: () => performAction(() => api.depositPaid(id), 'Deposit verified! Buyer can now send payment.') },
+                ]);
+              }}
+              loading={actionLoading}
             />
           </View>
         )}
@@ -263,9 +321,9 @@ export default function EscrowDetailScreen({ route, navigation }) {
                   <Text style={styles.paymentTitle}>Wire Transfer Details</Text>
                   <View style={styles.payTotalBox}>
                     <Text style={styles.payTotalLabel}>Amount to Wire</Text>
-                    <Text style={styles.payTotalAmount}>${(parseFloat(escrow.amount) + parseFloat(escrow.amount) * 0.005 + 25).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                    <Text style={styles.payTotalAmount}>${Number(escrow.buyer_total || (parseFloat(escrow.amount) + parseFloat(escrow.escrow_fee) + 25)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                     <Text style={styles.payTotalBreakdown}>
-                      ${Number(escrow.amount).toLocaleString()} + ${(parseFloat(escrow.amount) * 0.005).toFixed(2)} fee + $25.00 wire
+                      ${Number(escrow.amount).toLocaleString()} + ${Number(escrow.escrow_fee).toFixed(2)} fee + $25.00 wire
                     </Text>
                   </View>
 
@@ -309,9 +367,9 @@ export default function EscrowDetailScreen({ route, navigation }) {
                   <Text style={styles.paymentTitle}>Send USDT Payment</Text>
                   <View style={styles.payTotalBox}>
                     <Text style={styles.payTotalLabel}>Amount to Send</Text>
-                    <Text style={styles.payTotalAmount}>${(parseFloat(escrow.amount) + parseFloat(escrow.amount) * 0.005).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</Text>
+                    <Text style={styles.payTotalAmount}>${Number(parseFloat(escrow.amount) + parseFloat(escrow.escrow_fee)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</Text>
                     <Text style={styles.payTotalBreakdown}>
-                      ${Number(escrow.amount).toLocaleString()} + ${(parseFloat(escrow.amount) * 0.005).toFixed(2)} fee
+                      ${Number(escrow.amount).toLocaleString()} + ${Number(escrow.escrow_fee).toFixed(2)} fee
                     </Text>
                   </View>
 
@@ -773,7 +831,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         )}
 
         {/* Cancel option */}
-        {(isBuyer || isSeller) && ['pending_seller', 'pending_payment'].includes(escrow.status) && (
+        {(isBuyer || isSeller) && ['pending_seller', 'deposit_pending', 'pending_payment'].includes(escrow.status) && (
           <Button
             title="Cancel Escrow"
             variant="outline"

@@ -110,16 +110,46 @@ router.post('/:id/confirm', authenticate, async (req, res) => {
 
     const sellerPayoutMethod = req.body.seller_payout_method || 'wire';
     const result = await db.query(
-      `UPDATE escrows SET status = 'pending_payment', seller_confirmed = TRUE, seller_payout_method = $1, updated_at = NOW()
+      `UPDATE escrows SET status = 'deposit_pending', seller_confirmed = TRUE, seller_payout_method = $1, updated_at = NOW()
        WHERE id = $2 RETURNING *`,
       [sellerPayoutMethod, req.params.id]
     );
 
-    await logEvent(req.params.id, 'seller_confirmed', req.user.id, `Seller approved the escrow. Payout via ${sellerPayoutMethod.toUpperCase()}`);
-    sendPushNotification(e.buyer_id, 'Escrow Approved', 'The seller approved your escrow. Please send payment.', { type: 'escrow', escrowId: req.params.id });
+    await logEvent(req.params.id, 'seller_confirmed', req.user.id, `Seller approved the escrow. Payout via ${sellerPayoutMethod.toUpperCase()}. Awaiting seller deposit of $${e.seller_deposit}.`);
+    sendPushNotification(e.buyer_id, 'Escrow Approved', 'The seller approved your escrow. Waiting for seller to pay deposit before payment instructions are sent.', { type: 'escrow', escrowId: req.params.id });
+    // Notify admin about pending deposit
+    const admins = await db.query('SELECT id FROM users WHERE is_admin = TRUE');
+    for (const admin of admins.rows) {
+      sendPushNotification(admin.id, 'Seller Deposit Needed', `Seller needs to pay $${e.seller_deposit} deposit for escrow $${e.amount}`, { type: 'escrow', escrowId: req.params.id });
+    }
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Escrow confirm error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /escrow/:id/deposit-paid - admin confirms seller deposit received
+router.post('/:id/deposit-paid', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.status !== 'deposit_pending') return res.status(400).json({ error: `Cannot mark deposit from status: ${e.status}` });
+
+    const result = await db.query(
+      `UPDATE escrows SET status = 'pending_payment', deposit_paid = TRUE, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+
+    await logEvent(req.params.id, 'deposit_paid', req.user.id, `Seller deposit of $${e.seller_deposit} received`);
+    sendPushNotification(e.buyer_id, 'Ready for Payment', 'Seller deposit confirmed. Please send your payment now.', { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.seller_id, 'Deposit Confirmed', `Your deposit of $${e.seller_deposit} has been confirmed. Waiting for buyer payment.`, { type: 'escrow', escrowId: req.params.id });
+    res.json({ escrow: result.rows[0] });
+  } catch (err) {
+    console.error('Deposit paid error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -508,7 +538,7 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     if (e.buyer_id !== req.user.id && e.seller_id !== req.user.id && !req.user.is_admin) {
       return res.status(403).json({ error: 'Not authorized' });
     }
-    if (!['pending_seller', 'pending_payment'].includes(e.status)) {
+    if (!['pending_seller', 'deposit_pending', 'pending_payment'].includes(e.status)) {
       return res.status(400).json({ error: 'Can only cancel before payment is verified' });
     }
 
