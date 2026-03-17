@@ -11,7 +11,7 @@ import { colors, spacing } from '../utils/theme';
 const STATUS_LABELS = {
   pending_seller: 'Awaiting Seller Confirmation',
   pending_payment: 'Awaiting Buyer Payment',
-  payment_received: 'Payment Verified - Ready to Ship',
+  payment_received: 'Payment Verified - Express Ship to Warehouse',
   shipped_to_warehouse: 'Shipped to Warehouse',
   at_warehouse: 'At Warehouse - Under Inspection',
   shipped: 'Shipped to Buyer',
@@ -179,7 +179,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {/* Seller confirms deal + chooses payout method */}
         {isSeller && escrow.status === 'pending_seller' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>The buyer wants to start an escrow with you. Review the details and choose how you'd like to receive your payout.</Text>
+            <Text style={styles.actionHint}>The buyer wants to start an escrow with you. Review the details and choose how you'd like to receive your payout.{'\n\n'}By confirming, you agree to:{'\n'}• Pay a security deposit of ${Number(escrow.seller_deposit || 0).toFixed(2)} (returned after inspection){'\n'}• Ship the product via EXPRESS to our warehouse{'\n'}• Deposit is forfeited if product doesn't match listing</Text>
 
             <Text style={[styles.actionHint, { fontWeight: '700', color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm }]}>How do you want to get paid?</Text>
             <View style={styles.payMethodTabs}>
@@ -391,7 +391,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {/* Seller ships */}
         {isSeller && escrow.status === 'payment_received' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>Payment has been verified. Take a photo of the package and enter the tracking number.</Text>
+            <Text style={styles.actionHint}>Payment has been verified. Ship the product via EXPRESS shipping to our warehouse for inspection.{'\n\n'}Ship to:{'\n'}CP Wireless 1 Inc{'\n'}3034 NW 72nd Ave{'\n'}Miami, FL 33122{'\n\n'}Take a photo of the sealed package and enter the express tracking number below.</Text>
 
             {/* Shipping photo */}
             <Text style={styles.photoLabel}>Photo of Package *</Text>
@@ -455,14 +455,14 @@ export default function EscrowDetailScreen({ route, navigation }) {
             )}
 
             <Input
-              label="Tracking Number *"
-              placeholder="Enter shipping tracking number"
+              label="Express Tracking Number *"
+              placeholder="Enter express shipping tracking number"
               value={tracking}
               onChangeText={setTracking}
               style={{ marginTop: spacing.sm }}
             />
             <Button
-              title="Mark as Shipped"
+              title="Ship to Warehouse"
               onPress={() => {
                 if (!escrow.shipping_photo_url && !shippingPhoto) { Alert.alert('Error', 'Please upload a photo of the package'); return; }
                 if (!tracking.trim()) { Alert.alert('Error', 'Please enter tracking number'); return; }
@@ -478,7 +478,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {isBuyer && escrow.status === 'shipped' && (
           <View style={styles.actionGroup}>
             <Text style={styles.actionHint}>
-              Tracking: {escrow.tracking_number}{'\n\n'}Once you receive the package, upload photos of the box and the contents inside, then confirm receipt.
+              The product has been inspected at our warehouse and shipped to you via express.{escrow.buyer_tracking_number ? `\n\nTracking: ${escrow.buyer_tracking_number}` : ''}{'\n\n'}Once you receive the package, upload photos of the box and the contents inside, then confirm receipt.
             </Text>
 
             {/* Seller's shipping photo */}
@@ -630,7 +630,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {/* Admin: Mark received at warehouse */}
         {isAdmin && escrow.status === 'shipped_to_warehouse' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>Package shipped to warehouse. Mark as received when it arrives.</Text>
+            <Text style={styles.actionHint}>Seller shipped via express to warehouse.{escrow.tracking_number ? ` Tracking: ${escrow.tracking_number}` : ''}{'\n'}Mark as received when package arrives.</Text>
             <Button
               title="Mark Received at Warehouse"
               onPress={() => performAction(() => api.warehouseReceived(id), 'Package marked as received. Ready for inspection.')}
@@ -642,10 +642,10 @@ export default function EscrowDetailScreen({ route, navigation }) {
         {/* Admin: Inspection passed / failed */}
         {isAdmin && escrow.status === 'at_warehouse' && (
           <View style={styles.actionGroup}>
-            <Text style={styles.actionHint}>Inspect the product. If it matches the listing, approve and ship to buyer. If fake/wrong, reject it.</Text>
+            <Text style={styles.actionHint}>Product is at the warehouse. Inspect it against the listing description.{'\n\n'}If it passes, ship EXPRESS to the buyer and enter the tracking number below.</Text>
             <Input
-              label="Buyer Tracking Number"
-              placeholder="Enter tracking # for shipment to buyer"
+              label="Express Tracking # to Buyer"
+              placeholder="Enter express tracking # for buyer shipment"
               value={tracking}
               onChangeText={setTracking}
               style={{ marginBottom: spacing.sm }}

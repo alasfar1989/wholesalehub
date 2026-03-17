@@ -212,7 +212,7 @@ router.delete('/me', authenticate, async (req, res) => {
   try {
     // Don't allow deletion if user has active escrows
     const active = await db.query(
-      "SELECT COUNT(*) as count FROM escrows WHERE (buyer_id = $1 OR seller_id = $1) AND status NOT IN ('completed', 'cancelled')",
+      "SELECT COUNT(*) as count FROM escrows WHERE (buyer_id = $1 OR seller_id = $1) AND status NOT IN ('completed', 'cancelled', 'inspection_failed')",
       [req.user.id]
     );
     if (parseInt(active.rows[0].count) > 0) {

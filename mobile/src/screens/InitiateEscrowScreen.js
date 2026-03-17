@@ -436,7 +436,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
             <Text style={[styles.feeValue, { color: colors.warning }]}>${sellerDeposit.toFixed(2)}</Text>
           </View>
           <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs }}>
-            Product ships to our warehouse for inspection. Deposit is returned if product matches listing.
+            All products must be EXPRESS shipped to our warehouse for inspection before delivery to buyer. Seller deposit is returned if product matches listing. Forfeited if product is fake or doesn't match.
           </Text>
         </View>
       ) : null}

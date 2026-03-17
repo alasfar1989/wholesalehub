@@ -175,8 +175,8 @@ router.post('/:id/payment-received', authenticate, requireAdmin, async (req, res
     );
 
     await logEvent(req.params.id, 'payment_verified', req.user.id, 'Admin verified payment received');
-    sendPushNotification(e.buyer_id, 'Payment Verified', 'Your payment has been verified. Waiting for seller to ship.', { type: 'escrow', escrowId: req.params.id });
-    sendPushNotification(e.seller_id, 'Payment Received', 'Payment verified by admin. Please ship the product.', { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.buyer_id, 'Payment Verified', 'Your payment has been verified. Waiting for seller to express ship to warehouse.', { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.seller_id, 'Payment Received', 'Payment verified. Please EXPRESS ship the product to our warehouse: CP Wireless 1 Inc, 3034 NW 72nd Ave, Miami, FL 33122', { type: 'escrow', escrowId: req.params.id });
     res.json({ escrow: result.rows[0] });
   } catch (err) {
     console.error('Payment received error:', err);
@@ -575,7 +575,7 @@ router.get('/admin/all', authenticate, requireAdmin, async (req, res) => {
         COALESCE(SUM(escrow_fee) FILTER (WHERE status = 'completed'), 0) as total_fees,
         COALESCE(SUM(COALESCE(wire_fee, 0)) FILTER (WHERE status = 'completed'), 0) as total_wire_fees,
         COALESCE(SUM(amount) FILTER (WHERE status = 'completed'), 0) as total_volume,
-        COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped','delivered')) as active_count,
+        COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped_to_warehouse','at_warehouse','shipped','delivered')) as active_count,
         COUNT(*) FILTER (WHERE status = 'disputed') as disputed_count
        FROM escrows`
     );

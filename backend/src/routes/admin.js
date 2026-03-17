@@ -20,7 +20,7 @@ router.get('/dashboard', async (req, res) => {
       db.query("SELECT COUNT(*) as pending FROM ratings WHERE status = 'pending'"),
       db.query(`SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped','delivered')) as active,
+        COUNT(*) FILTER (WHERE status IN ('pending_seller','pending_payment','payment_received','shipped_to_warehouse','at_warehouse','shipped','delivered')) as active,
         COUNT(*) FILTER (WHERE status = 'completed') as completed,
         COUNT(*) FILTER (WHERE status = 'disputed') as disputed,
         COALESCE(SUM(escrow_fee) FILTER (WHERE status = 'completed'), 0)::DECIMAL(12,2) as fees_collected,
