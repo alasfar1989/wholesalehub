@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image, RefreshControl, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
@@ -172,6 +172,12 @@ export default function ProfileScreen({ navigation }) {
             style={{ flex: 1 }}
           />
         </View>
+        <TouchableOpacity
+          onPress={() => Linking.openURL('mailto:Cpwireless21@gmail.com?subject=WholesaleHub Support')}
+          style={styles.supportLink}
+        >
+          <Text style={styles.supportLinkText}>Help & Support</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccount}>
           <Text style={styles.deleteAccountText}>Delete Account</Text>
         </TouchableOpacity>
@@ -324,8 +330,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     width: '100%',
   },
-  deleteAccount: {
+  supportLink: {
     marginTop: spacing.md,
+  },
+  supportLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    textDecorationLine: 'underline',
+  },
+  deleteAccount: {
+    marginTop: spacing.sm,
   },
   deleteAccountText: {
     fontSize: 14,
