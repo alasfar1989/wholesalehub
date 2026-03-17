@@ -12,10 +12,33 @@ export default function ListingDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     loadListing();
+    checkFavorite();
   }, [id]);
+
+  async function checkFavorite() {
+    try {
+      const data = await api.getFavorites();
+      setSaved(data.listings.some(l => l.id === id));
+    } catch {}
+  }
+
+  async function toggleFavorite() {
+    try {
+      if (saved) {
+        await api.unfavoriteListing(id);
+        setSaved(false);
+      } else {
+        await api.favoriteListing(id);
+        setSaved(true);
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
+  }
 
   async function loadListing() {
     try {
@@ -128,9 +151,14 @@ export default function ListingDetailScreen({ route, navigation }) {
           <Text style={styles.price}>
             {listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price'}
           </Text>
-          <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-            <Text style={styles.shareBtnText}>Share</Text>
-          </TouchableOpacity>
+          <View style={styles.actionBtns}>
+            <TouchableOpacity onPress={toggleFavorite} style={[styles.saveBtn, saved && styles.saveBtnActive]}>
+              <Text style={[styles.saveBtnText, saved && styles.saveBtnTextActive]}>{saved ? 'Saved' : 'Save'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
+              <Text style={styles.shareBtnText}>Share</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.detailsGrid}>
@@ -393,6 +421,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  actionBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  saveBtn: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  saveBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  saveBtnText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  saveBtnTextActive: {
+    color: '#fff',
   },
   shareBtn: {
     backgroundColor: colors.primary,

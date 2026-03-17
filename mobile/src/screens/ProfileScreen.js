@@ -33,6 +33,7 @@ export default function ProfileScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
   const [listings, setListings] = useState([]);
   const [references, setReferences] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [tab, setTab] = useState('listings');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,12 +48,14 @@ export default function ProfileScreen({ navigation }) {
 
   async function loadData() {
     try {
-      const [listingsData, refsData] = await Promise.all([
+      const [listingsData, refsData, favsData] = await Promise.all([
         api.getMyListings(),
         api.getReferences(user.id),
+        api.getFavorites(),
       ]);
       setListings(listingsData.listings);
       setReferences(refsData.references);
+      setFavorites(favsData.listings);
     } catch (err) {
       console.error(err);
     }
@@ -186,7 +189,8 @@ export default function ProfileScreen({ navigation }) {
       {/* Tabs */}
       <View style={styles.tabs}>
         <TabButton title={`Listings (${listings.length})`} active={tab === 'listings'} onPress={() => setTab('listings')} />
-        <TabButton title={`References (${references.length})`} active={tab === 'references'} onPress={() => setTab('references')} />
+        <TabButton title={`Saved (${favorites.length})`} active={tab === 'saved'} onPress={() => setTab('saved')} />
+        <TabButton title={`Refs (${references.length})`} active={tab === 'references'} onPress={() => setTab('references')} />
       </View>
 
       {tab === 'listings' && (
@@ -199,6 +203,19 @@ export default function ProfileScreen({ navigation }) {
             />
           ))}
           {listings.length === 0 && <Text style={styles.empty}>No listings yet</Text>}
+        </>
+      )}
+
+      {tab === 'saved' && (
+        <>
+          {favorites.map(item => (
+            <ListingCard
+              key={item.id}
+              listing={item}
+              onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
+            />
+          ))}
+          {favorites.length === 0 && <Text style={styles.empty}>No saved listings yet</Text>}
         </>
       )}
 

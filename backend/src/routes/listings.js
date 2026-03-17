@@ -164,6 +164,25 @@ router.get('/mine', authenticate, async (req, res) => {
   }
 });
 
+// GET /listings/favorites - get user's saved listings
+router.get('/favorites', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
+       FROM favorites f
+       JOIN listings l ON f.listing_id = l.id
+       JOIN users u ON l.user_id = u.id
+       WHERE f.user_id = $1
+       ORDER BY f.created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ listings: result.rows });
+  } catch (err) {
+    console.error('Get favorites error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /listings/:id - get single listing with photos
 router.get('/:id', async (req, res) => {
   try {
@@ -422,6 +441,34 @@ router.post('/:id/feature', authenticate, async (req, res) => {
     res.json({ success: true, message: `Listing featured for today! Cost: $2.99` });
   } catch (err) {
     console.error('Feature listing error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /listings/:id/favorite - save a listing
+router.post('/:id/favorite', authenticate, async (req, res) => {
+  try {
+    await db.query(
+      'INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.id, req.params.id]
+    );
+    res.json({ saved: true });
+  } catch (err) {
+    console.error('Favorite error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /listings/:id/favorite - unsave a listing
+router.delete('/:id/favorite', authenticate, async (req, res) => {
+  try {
+    await db.query(
+      'DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2',
+      [req.user.id, req.params.id]
+    );
+    res.json({ saved: false });
+  } catch (err) {
+    console.error('Unfavorite error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

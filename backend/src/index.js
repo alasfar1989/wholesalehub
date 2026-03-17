@@ -142,6 +142,13 @@ async function applySchemaUpdates() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       UNIQUE(blocker_id, blocked_id)
     )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS favorites (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      UNIQUE(user_id, listing_id)
+    )`);
     await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE');
     // Set expiration for existing listings that don't have one (30 days from creation)
     await db.query("UPDATE listings SET expires_at = created_at + INTERVAL '30 days' WHERE expires_at IS NULL");

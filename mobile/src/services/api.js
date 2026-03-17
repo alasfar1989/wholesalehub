@@ -147,6 +147,18 @@ class ApiService {
     return this.request('/listings/mine');
   }
 
+  getFavorites() {
+    return this.request('/listings/favorites');
+  }
+
+  favoriteListing(id) {
+    return this.request(`/listings/${id}/favorite`, { method: 'POST' });
+  }
+
+  unfavoriteListing(id) {
+    return this.request(`/listings/${id}/favorite`, { method: 'DELETE' });
+  }
+
   createListing(body) {
     return this.request('/listings', { method: 'POST', body: JSON.stringify(body) });
   }
