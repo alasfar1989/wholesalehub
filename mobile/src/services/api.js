@@ -346,6 +346,18 @@ class ApiService {
     return this.request(`/escrow/${id}/confirm-receipt`, { method: 'POST' });
   }
 
+  warehouseReceived(id) {
+    return this.request(`/escrow/${id}/warehouse-received`, { method: 'POST' });
+  }
+
+  inspectionPassed(id, buyerTrackingNumber) {
+    return this.request(`/escrow/${id}/inspection-passed`, { method: 'POST', body: JSON.stringify({ buyer_tracking_number: buyerTrackingNumber }) });
+  }
+
+  inspectionFailed(id, reason) {
+    return this.request(`/escrow/${id}/inspection-failed`, { method: 'POST', body: JSON.stringify({ reason }) });
+  }
+
   releasePayment(id) {
     return this.request(`/escrow/${id}/release-payment`, { method: 'POST' });
   }

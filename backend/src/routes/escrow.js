@@ -11,8 +11,22 @@ const { uploadImage } = require('../utils/cloudinary');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-const ESCROW_FEE_PERCENT = 0.005; // 0.5%
 const WIRE_FEE = 25; // flat wire transfer fee
+const MIN_FEE = 50; // minimum escrow fee
+
+function getEscrowFeePercent(amount) {
+  if (amount >= 100000) return 0.01;   // 1%
+  if (amount >= 25000) return 0.015;   // 1.5%
+  if (amount >= 5000) return 0.025;    // 2.5%
+  return 0.04;                          // 4%
+}
+
+function getSellerDeposit(amount) {
+  if (amount >= 100000) return 1000;
+  if (amount >= 25000) return 500;
+  if (amount >= 5000) return 250;
+  return 100;
+}
 
 // Helper to log escrow events
 async function logEvent(escrowId, action, userId, details) {
@@ -48,7 +62,10 @@ router.post(
         return res.status(404).json({ error: 'Seller not found' });
       }
 
-      const fee = parseFloat((parseFloat(amount) * ESCROW_FEE_PERCENT).toFixed(2));
+      const parsedAmount = parseFloat(amount);
+      const feePercent = getEscrowFeePercent(parsedAmount);
+      const fee = Math.max(MIN_FEE, parseFloat((parsedAmount * feePercent).toFixed(2)));
+      const deposit = getSellerDeposit(parsedAmount);
       const method = payment_method || 'wire';
       const feePayerVal = fee_payer || 'buyer';
       const wireFee = method === 'wire' ? WIRE_FEE : 0;
@@ -57,17 +74,17 @@ router.post(
       const buyerFeeShare = feePayerVal === 'buyer' ? fee : 0;
       const sellerFeeShare = feePayerVal === 'seller' ? fee : 0;
 
-      const payout = (parseFloat(amount) - sellerFeeShare).toFixed(2);
-      const buyerTotal = (parseFloat(amount) + buyerFeeShare + wireFee).toFixed(2);
+      const payout = (parsedAmount - sellerFeeShare).toFixed(2);
+      const buyerTotal = (parsedAmount + buyerFeeShare + wireFee).toFixed(2);
 
       const result = await db.query(
-        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, wire_fee, seller_payout, buyer_total, payment_method, fee_payer, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_seller')
+        `INSERT INTO escrows (buyer_id, seller_id, listing_id, product_description, amount, escrow_fee, wire_fee, seller_payout, buyer_total, payment_method, fee_payer, seller_deposit, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending_seller')
          RETURNING *`,
-        [req.user.id, seller_id, listing_id || null, product_description, amount, fee.toFixed(2), wireFee.toFixed(2), payout, buyerTotal, method, feePayerVal]
+        [req.user.id, seller_id, listing_id || null, product_description, amount, fee.toFixed(2), wireFee.toFixed(2), payout, buyerTotal, method, feePayerVal, deposit.toFixed(2)]
       );
 
-      await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} via ${method.toUpperCase()}. Buyer total: $${buyerTotal}`);
+      await logEvent(result.rows[0].id, 'initiated', req.user.id, `Escrow created for $${amount} (${(feePercent * 100)}% fee = $${fee.toFixed(2)}). Seller deposit: $${deposit}. Buyer total: $${buyerTotal}`);
 
       // Notify seller
       const buyer = await db.query('SELECT business_name FROM users WHERE id = $1', [req.user.id]);
@@ -205,13 +222,18 @@ router.post(
       if (!e.shipping_photo_url) return res.status(400).json({ error: 'Please upload a photo of the package first' });
 
       const result = await db.query(
-        `UPDATE escrows SET status = 'shipped', tracking_number = $1, updated_at = NOW()
+        `UPDATE escrows SET status = 'shipped_to_warehouse', tracking_number = $1, updated_at = NOW()
          WHERE id = $2 RETURNING *`,
         [req.body.tracking_number, req.params.id]
       );
 
-      await logEvent(req.params.id, 'shipped', req.user.id, `Tracking: ${req.body.tracking_number}`);
-      sendPushNotification(e.buyer_id, 'Order Shipped', `Your order has been shipped. Tracking: ${req.body.tracking_number}`, { type: 'escrow', escrowId: req.params.id });
+      await logEvent(req.params.id, 'shipped_to_warehouse', req.user.id, `Shipped to warehouse. Tracking: ${req.body.tracking_number}`);
+      sendPushNotification(e.buyer_id, 'Order Shipped to Warehouse', `Seller shipped to our warehouse for inspection. Tracking: ${req.body.tracking_number}`, { type: 'escrow', escrowId: req.params.id });
+      // Notify admin
+      const admins = await db.query('SELECT id FROM users WHERE is_admin = TRUE');
+      for (const admin of admins.rows) {
+        sendPushNotification(admin.id, 'Package Incoming', `Seller shipped product for escrow $${e.amount}. Tracking: ${req.body.tracking_number}`, { type: 'escrow', escrowId: req.params.id });
+      }
       res.json({ escrow: result.rows[0] });
     } catch (err) {
       console.error('Ship error:', err);
@@ -219,6 +241,93 @@ router.post(
     }
   }
 );
+
+// POST /escrow/:id/warehouse-received - admin marks product received at warehouse
+router.post('/:id/warehouse-received', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.status !== 'shipped_to_warehouse') return res.status(400).json({ error: `Cannot mark received from status: ${e.status}` });
+
+    const result = await db.query(
+      `UPDATE escrows SET status = 'at_warehouse', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+
+    await logEvent(req.params.id, 'warehouse_received', req.user.id, 'Package received at warehouse for inspection');
+    sendPushNotification(e.buyer_id, 'Package at Warehouse', 'The product has arrived at our warehouse and is being inspected.', { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.seller_id, 'Package Received', 'Your package arrived at the warehouse. Inspection in progress.', { type: 'escrow', escrowId: req.params.id });
+    res.json({ escrow: result.rows[0] });
+  } catch (err) {
+    console.error('Warehouse received error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /escrow/:id/inspection-passed - admin approves product, ships to buyer
+router.post('/:id/inspection-passed', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.status !== 'at_warehouse') return res.status(400).json({ error: `Cannot approve from status: ${e.status}` });
+
+    const buyerTracking = req.body.buyer_tracking_number || '';
+    const result = await db.query(
+      `UPDATE escrows SET status = 'shipped', buyer_tracking_number = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [buyerTracking, req.params.id]
+    );
+
+    await logEvent(req.params.id, 'inspection_passed', req.user.id, `Product inspected and approved. Shipped to buyer.${buyerTracking ? ` Tracking: ${buyerTracking}` : ''}`);
+    sendPushNotification(e.buyer_id, 'Product Verified & Shipped', `Product passed inspection and is on its way to you!${buyerTracking ? ` Tracking: ${buyerTracking}` : ''}`, { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.seller_id, 'Inspection Passed', 'Your product passed inspection. It has been shipped to the buyer.', { type: 'escrow', escrowId: req.params.id });
+    res.json({ escrow: result.rows[0] });
+  } catch (err) {
+    console.error('Inspection passed error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /escrow/:id/inspection-failed - admin rejects product (fake/wrong), seller loses deposit
+router.post('/:id/inspection-failed', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const escrow = await db.query('SELECT * FROM escrows WHERE id = $1', [req.params.id]);
+    if (escrow.rows.length === 0) return res.status(404).json({ error: 'Escrow not found' });
+
+    const e = escrow.rows[0];
+    if (e.status !== 'at_warehouse') return res.status(400).json({ error: `Cannot reject from status: ${e.status}` });
+
+    const reason = req.body.reason || 'Product did not match listing description';
+    const result = await db.query(
+      `UPDATE escrows SET status = 'inspection_failed', deposit_forfeited = TRUE, admin_notes = COALESCE(admin_notes, '') || $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [`\nINSPECTION FAILED: ${reason}. Seller deposit of $${e.seller_deposit} forfeited.`, req.params.id]
+    );
+
+    // Add strike to seller
+    await db.query(
+      'UPDATE users SET strikes = COALESCE(strikes, 0) + 1, updated_at = NOW() WHERE id = $1',
+      [e.seller_id]
+    );
+
+    // Auto-suspend on 3 strikes
+    const seller = await db.query('SELECT strikes FROM users WHERE id = $1', [e.seller_id]);
+    if (seller.rows[0]?.strikes >= 3) {
+      await db.query('UPDATE users SET is_suspended = TRUE WHERE id = $1', [e.seller_id]);
+    }
+
+    await logEvent(req.params.id, 'inspection_failed', req.user.id, `Product rejected: ${reason}. Seller deposit $${e.seller_deposit} forfeited. Strike added.`);
+    sendPushNotification(e.buyer_id, 'Product Rejected', `The product failed inspection. Full refund of $${e.amount} will be processed.`, { type: 'escrow', escrowId: req.params.id });
+    sendPushNotification(e.seller_id, 'Inspection Failed', `Your product failed inspection: ${reason}. Your deposit of $${e.seller_deposit} has been forfeited. A strike has been added to your account.`, { type: 'escrow', escrowId: req.params.id });
+    res.json({ escrow: result.rows[0] });
+  } catch (err) {
+    console.error('Inspection failed error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // POST /escrow/:id/delivery-photo - buyer uploads photo of received box
 router.post('/:id/delivery-photo', authenticate, upload.single('photo'), async (req, res) => {

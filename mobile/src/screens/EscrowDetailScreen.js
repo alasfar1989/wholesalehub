@@ -12,10 +12,13 @@ const STATUS_LABELS = {
   pending_seller: 'Awaiting Seller Confirmation',
   pending_payment: 'Awaiting Buyer Payment',
   payment_received: 'Payment Verified - Ready to Ship',
-  shipped: 'Shipped - Awaiting Delivery',
+  shipped_to_warehouse: 'Shipped to Warehouse',
+  at_warehouse: 'At Warehouse - Under Inspection',
+  shipped: 'Shipped to Buyer',
   delivered: 'Delivered - Awaiting Admin Release',
   completed: 'Completed',
   disputed: 'Disputed',
+  inspection_failed: 'Inspection Failed - Product Rejected',
   cancelled: 'Cancelled',
 };
 
@@ -23,10 +26,13 @@ const STATUS_COLORS = {
   pending_seller: colors.warning,
   pending_payment: colors.warning,
   payment_received: colors.accent,
+  shipped_to_warehouse: colors.wtb,
+  at_warehouse: colors.warning,
   shipped: colors.wtb,
   delivered: colors.wts,
   completed: colors.success,
   disputed: colors.error,
+  inspection_failed: colors.error,
   cancelled: colors.textLight,
 };
 
@@ -102,7 +108,7 @@ export default function EscrowDetailScreen({ route, navigation }) {
         <Text style={styles.amount}>${Number(escrow.amount).toLocaleString()}</Text>
         <View style={styles.feeBreakdown}>
           <View style={styles.feeBreakdownRow}>
-            <Text style={styles.feeText}>Escrow Fee (0.5%)</Text>
+            <Text style={styles.feeText}>Escrow Fee</Text>
             <Text style={styles.feeText}>${Number(escrow.escrow_fee).toFixed(2)}</Text>
           </View>
           {escrow.payment_method === 'wire' && Number(escrow.wire_fee || 0) > 0 && (
@@ -119,6 +125,14 @@ export default function EscrowDetailScreen({ route, navigation }) {
             <Text style={styles.feeText}>Seller Receives</Text>
             <Text style={[styles.feeText, { color: colors.success }]}>${Number(escrow.seller_payout).toFixed(2)}</Text>
           </View>
+          {escrow.seller_deposit > 0 && (
+            <View style={styles.feeBreakdownRow}>
+              <Text style={styles.feeText}>Seller Deposit</Text>
+              <Text style={[styles.feeText, { color: escrow.deposit_forfeited ? colors.error : colors.warning }]}>
+                ${Number(escrow.seller_deposit).toFixed(2)}{escrow.deposit_forfeited ? ' (Forfeited)' : ''}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -140,7 +154,8 @@ export default function EscrowDetailScreen({ route, navigation }) {
             <Image source={{ uri: escrow.shipping_photo_url }} style={styles.shippingPhotoThumb} />
           </View>
         )}
-        {escrow.tracking_number && <DetailRow label="Tracking" value={escrow.tracking_number} />}
+        {escrow.tracking_number && <DetailRow label="Seller Tracking" value={escrow.tracking_number} />}
+        {escrow.buyer_tracking_number && <DetailRow label="Buyer Tracking" value={escrow.buyer_tracking_number} />}
         {escrow.delivery_photo_url && (
           <View style={styles.shippingPhotoRow}>
             <Text style={styles.detailLabel}>Delivery Photo (Box)</Text>
@@ -608,6 +623,61 @@ export default function EscrowDetailScreen({ route, navigation }) {
               }}
               loading={actionLoading}
               style={{ marginTop: spacing.md }}
+            />
+          </View>
+        )}
+
+        {/* Admin: Mark received at warehouse */}
+        {isAdmin && escrow.status === 'shipped_to_warehouse' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>Package shipped to warehouse. Mark as received when it arrives.</Text>
+            <Button
+              title="Mark Received at Warehouse"
+              onPress={() => performAction(() => api.warehouseReceived(id), 'Package marked as received. Ready for inspection.')}
+              loading={actionLoading}
+            />
+          </View>
+        )}
+
+        {/* Admin: Inspection passed / failed */}
+        {isAdmin && escrow.status === 'at_warehouse' && (
+          <View style={styles.actionGroup}>
+            <Text style={styles.actionHint}>Inspect the product. If it matches the listing, approve and ship to buyer. If fake/wrong, reject it.</Text>
+            <Input
+              label="Buyer Tracking Number"
+              placeholder="Enter tracking # for shipment to buyer"
+              value={tracking}
+              onChangeText={setTracking}
+              style={{ marginBottom: spacing.sm }}
+            />
+            <Button
+              title="Inspection Passed - Ship to Buyer"
+              onPress={() => {
+                Alert.alert('Approve Product', 'Product matches listing. Ship to buyer?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Approve & Ship', onPress: () => performAction(() => api.inspectionPassed(id, tracking), 'Product approved and shipped to buyer!') },
+                ]);
+              }}
+              loading={actionLoading}
+              style={{ marginBottom: spacing.sm }}
+            />
+            <Button
+              title="Inspection Failed - Reject Product"
+              variant="danger"
+              onPress={() => {
+                Alert.prompt('Reject Product', 'Describe what is wrong with the product:', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Reject',
+                    style: 'destructive',
+                    onPress: (reason) => performAction(
+                      () => api.inspectionFailed(id, reason || 'Product did not match listing'),
+                      `Product rejected. Seller deposit of $${escrow.seller_deposit} forfeited. Strike added.`
+                    ),
+                  },
+                ], 'plain-text');
+              }}
+              loading={actionLoading}
             />
           </View>
         )}

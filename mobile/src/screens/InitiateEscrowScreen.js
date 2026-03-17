@@ -7,6 +7,28 @@ import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
 
 const WIRE_FEE = 25;
+const MIN_FEE = 50;
+
+function getEscrowFeePercent(amount) {
+  if (amount >= 100000) return 0.01;
+  if (amount >= 25000) return 0.015;
+  if (amount >= 5000) return 0.025;
+  return 0.04;
+}
+
+function getSellerDeposit(amount) {
+  if (amount >= 100000) return 1000;
+  if (amount >= 25000) return 500;
+  if (amount >= 5000) return 250;
+  return 100;
+}
+
+function getFeeLabel(amount) {
+  if (amount >= 100000) return '1%';
+  if (amount >= 25000) return '1.5%';
+  if (amount >= 5000) return '2.5%';
+  return '4%';
+}
 
 export default function InitiateEscrowScreen({ route, navigation }) {
   const prefill = route.params || {};
@@ -108,7 +130,9 @@ export default function InitiateEscrowScreen({ route, navigation }) {
     return price * qty;
   });
   const invoiceTotal = itemSubtotals.reduce((sum, s) => sum + s, 0);
-  const escrowFee = invoiceTotal > 0 ? (invoiceTotal * 0.005) : 0;
+  const feePercent = getEscrowFeePercent(invoiceTotal);
+  const escrowFee = invoiceTotal > 0 ? Math.max(MIN_FEE, invoiceTotal * feePercent) : 0;
+  const sellerDeposit = invoiceTotal > 0 ? getSellerDeposit(invoiceTotal) : 0;
   const wireFee = paymentMethod === 'wire' ? WIRE_FEE : 0;
   const buyerFee = feePayer === 'buyer' ? escrowFee : 0;
   const sellerFee = feePayer === 'seller' ? escrowFee : 0;
@@ -378,7 +402,7 @@ export default function InitiateEscrowScreen({ route, navigation }) {
             </View>
           )}
           <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Escrow Fee (0.5%)</Text>
+            <Text style={styles.feeLabel}>Escrow Fee ({getFeeLabel(invoiceTotal)})</Text>
             <Text style={styles.feeValue}>${escrowFee.toFixed(2)}</Text>
           </View>
           {buyerFee > 0 && (
@@ -407,6 +431,13 @@ export default function InitiateEscrowScreen({ route, navigation }) {
             <Text style={styles.feeLabel}>Seller Receives</Text>
             <Text style={[styles.feeValue, { color: colors.success }]}>${sellerPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
           </View>
+          <View style={[styles.feeRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.xs, marginTop: spacing.xs }]}>
+            <Text style={styles.feeLabel}>Seller Security Deposit</Text>
+            <Text style={[styles.feeValue, { color: colors.warning }]}>${sellerDeposit.toFixed(2)}</Text>
+          </View>
+          <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs }}>
+            Product ships to our warehouse for inspection. Deposit is returned if product matches listing.
+          </Text>
         </View>
       ) : null}
 
