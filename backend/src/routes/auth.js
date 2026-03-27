@@ -143,7 +143,7 @@ router.post(
       res.json({ token, user: userWithoutPassword });
     } catch (err) {
       console.error('Login error:', err);
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ error: 'Internal server error', debug: err.message });
     }
   }
 );
