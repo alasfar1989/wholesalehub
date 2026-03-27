@@ -116,7 +116,7 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ error: 'Internal server error', debug: err.message, stack: err.stack?.split('\n').slice(0, 3) });
 });
 
 // Run schema updates on startup
