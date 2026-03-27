@@ -108,6 +108,7 @@ async function applySchemaUpdates() {
     await db.query("ALTER TABLE escrows ADD COLUMN IF NOT EXISTS fee_payer VARCHAR(10) DEFAULT 'buyer'");
     await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS seller_deposit DECIMAL(12,2) DEFAULT 0');
     await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS deposit_forfeited BOOLEAN DEFAULT FALSE');
+    await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS deposit_paid BOOLEAN DEFAULT FALSE');
     await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS buyer_tracking_number TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS strikes INTEGER DEFAULT 0');
     await db.query('ALTER TABLE escrows ADD COLUMN IF NOT EXISTS shipping_photo_url TEXT');
@@ -158,6 +159,19 @@ async function applySchemaUpdates() {
     await db.query("UPDATE listings SET expires_at = created_at + INTERVAL '30 days' WHERE expires_at IS NULL");
     // Auto-deactivate expired listings
     await db.query("UPDATE listings SET is_active = FALSE WHERE expires_at < NOW() AND is_active = TRUE");
+    // Create Apple review demo account if it doesn't exist
+    const bcrypt = require('bcryptjs');
+    const demoPhone = '5550001234';
+    const demoExists = await db.query("SELECT id FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1", [demoPhone]);
+    if (demoExists.rows.length === 0) {
+      const demoHash = await bcrypt.hash('Demo2026!', 12);
+      await db.query(
+        `INSERT INTO users (phone, password_hash, business_name, email, city, category, is_admin, is_approved)
+         VALUES ($1, $2, $3, $4, $5, $6, FALSE, TRUE)`,
+        [demoPhone, demoHash, 'Demo Business', 'demo@wholesalehub.app', 'Miami', 'electronics']
+      );
+      console.log('Demo account created for App Store review.');
+    }
     console.log('Schema updates applied.');
   } catch (err) {
     console.error('Schema update error (non-fatal):', err.message);
