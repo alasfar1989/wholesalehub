@@ -63,30 +63,6 @@ app.get('/terms', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'terms.html'));
 });
 
-// One-time demo account seed for App Store review
-app.get('/seed-demo', async (req, res) => {
-  try {
-    const bcrypt = require('bcryptjs');
-    const demoPhone = '5550001234';
-    const existing = await db.query("SELECT id, phone, business_name FROM users WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = $1", [demoPhone]);
-    if (existing.rows.length > 0) {
-      // Update password in case it was wrong
-      const hash = await bcrypt.hash('Demo2026!', 12);
-      await db.query('UPDATE users SET password_hash = $1, is_approved = TRUE WHERE id = $2', [hash, existing.rows[0].id]);
-      return res.json({ message: 'Demo account already exists, password reset', user: existing.rows[0] });
-    }
-    const hash = await bcrypt.hash('Demo2026!', 12);
-    const result = await db.query(
-      `INSERT INTO users (phone, password_hash, business_name, email, city, category, is_admin, is_approved)
-       VALUES ($1, $2, $3, $4, $5, $6, FALSE, TRUE) RETURNING id, phone, business_name`,
-      [demoPhone, hash, 'Demo Business', 'demo@wholesalehub.app', 'Miami', 'electronics']
-    );
-    res.json({ message: 'Demo account created', user: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -116,7 +92,7 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error', debug: err.message, stack: err.stack?.split('\n').slice(0, 3) });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Run schema updates on startup
