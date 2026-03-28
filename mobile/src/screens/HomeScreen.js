@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import ListingCard from '../components/ListingCard';
 import { colors, spacing } from '../utils/theme';
@@ -11,6 +12,7 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -21,14 +23,17 @@ export default function HomeScreen({ navigation }) {
   async function loadData() {
     setRefreshing(true);
     try {
-      const [featuredData, listingsData] = await Promise.all([
+      const [featuredData, listingsData, convoData] = await Promise.all([
         api.getFeatured(),
         api.getListings(1),
+        api.getConversations().catch(() => ({ conversations: [] })),
       ]);
       setFeatured(featuredData.featured);
       setListings(listingsData.listings);
       setPage(1);
       setHasMore(listingsData.pagination.page < listingsData.pagination.pages);
+      const totalUnread = (convoData.conversations || []).reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      setUnreadCount(totalUnread);
     } catch (err) {
       console.error(err);
     } finally {
@@ -90,9 +95,19 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>WholesaleHub</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-          <Text style={styles.searchIcon}>Search</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => navigation.navigate('Messages')} style={styles.headerBtn}>
+            <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Search')} style={styles.headerBtn}>
+            <Ionicons name="search-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -140,15 +155,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
   },
-  searchIcon: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 8,
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  headerBtn: { position: 'relative', padding: spacing.xs },
+  unreadBadge: {
+    position: 'absolute', top: -4, right: -6,
+    backgroundColor: colors.highlight, borderRadius: 10,
+    minWidth: 18, height: 18,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 4,
   },
+  unreadBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   list: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,

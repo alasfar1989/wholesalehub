@@ -33,7 +33,7 @@ export default function ConversationsScreen({ navigation }) {
         keyExtractor={item => item.other_user_id}
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={styles.row}
+            style={[styles.row, item.unread_count > 0 && styles.rowUnread]}
             onPress={() => navigation.navigate('Chat', { userId: item.other_user_id, name: item.business_name })}
           >
             <View style={styles.avatar}>
@@ -41,14 +41,14 @@ export default function ConversationsScreen({ navigation }) {
             </View>
             <View style={styles.info}>
               <View style={styles.nameRow}>
-                <Text style={styles.name}>{item.business_name}</Text>
+                <Text style={[styles.name, item.unread_count > 0 && styles.nameUnread]}>{item.business_name}</Text>
                 {item.unread_count > 0 && (
                   <View style={styles.unreadBadge}>
                     <Text style={styles.unreadText}>{item.unread_count}</Text>
                   </View>
                 )}
               </View>
-              <Text style={styles.lastMsg} numberOfLines={1}>{item.last_message}</Text>
+              <Text style={[styles.lastMsg, item.unread_count > 0 && styles.lastMsgUnread]} numberOfLines={1}>{item.last_message}</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -94,5 +94,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  rowUnread: { backgroundColor: '#f0f4ff' },
+  nameUnread: { fontWeight: '800' },
+  lastMsgUnread: { color: colors.text, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 16 },
 });

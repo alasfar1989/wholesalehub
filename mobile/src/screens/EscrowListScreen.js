@@ -10,10 +10,14 @@ const STATUS_LABELS = {
   pending_seller: 'Awaiting Seller',
   pending_payment: 'Awaiting Payment',
   payment_received: 'Payment Verified',
+  deposit_pending: 'Deposit Pending',
   shipped: 'Shipped',
+  shipped_to_warehouse: 'Shipped to Warehouse',
+  at_warehouse: 'At Warehouse',
   delivered: 'Delivered',
   completed: 'Completed',
   disputed: 'Disputed',
+  inspection_failed: 'Inspection Failed',
   cancelled: 'Cancelled',
 };
 
@@ -21,10 +25,14 @@ const STATUS_COLORS = {
   pending_seller: colors.warning,
   pending_payment: colors.warning,
   payment_received: colors.accent,
+  deposit_pending: colors.warning,
   shipped: colors.wtb,
+  shipped_to_warehouse: colors.wtb,
+  at_warehouse: colors.warning,
   delivered: colors.wts,
   completed: colors.success,
   disputed: colors.error,
+  inspection_failed: colors.error,
   cancelled: colors.textLight,
 };
 
@@ -32,6 +40,7 @@ export default function EscrowListScreen({ navigation }) {
   const { user } = useAuth();
   const [escrows, setEscrows] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState('all');
 
   useFocusEffect(
     useCallback(() => {
@@ -60,8 +69,28 @@ export default function EscrowListScreen({ navigation }) {
         <Text style={styles.newBtnText}>+ New Escrow</Text>
       </TouchableOpacity>
 
+      <View style={styles.filterRow}>
+        {['all', 'active', 'completed', 'cancelled'].map(f => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+            onPress={() => setFilter(f)}
+          >
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={escrows}
+        data={escrows.filter(e => {
+          if (filter === 'all') return true;
+          if (filter === 'active') return !['completed', 'cancelled', 'inspection_failed'].includes(e.status);
+          if (filter === 'completed') return e.status === 'completed';
+          if (filter === 'cancelled') return ['cancelled', 'inspection_failed'].includes(e.status);
+          return true;
+        })}
         keyExtractor={item => item.id}
         renderItem={({ item }) => {
           const isBuyer = item.buyer_id === user.id;
@@ -142,5 +171,10 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
   party: { fontSize: 13, color: colors.textSecondary },
   date: { fontSize: 12, color: colors.textLight },
+  filterRow: { flexDirection: 'row', marginHorizontal: spacing.md, marginBottom: spacing.sm, gap: spacing.xs },
+  filterBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  filterTextActive: { color: '#fff' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 16 },
 });

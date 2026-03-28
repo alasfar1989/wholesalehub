@@ -99,6 +99,25 @@ export default function AdminScreen({ navigation }) {
     }
   }
 
+  async function handleDeleteListing(listingId, title) {
+    Alert.alert('Delete Listing', `Delete "${title}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.adminDeleteListing(listingId);
+            loadListings();
+            loadDashboard();
+          } catch (err) {
+            Alert.alert('Error', err.message);
+          }
+        },
+      },
+    ]);
+  }
+
   async function loadEscrows() {
     try {
       const data = await api.getAdminEscrows();
@@ -367,13 +386,22 @@ export default function AdminScreen({ navigation }) {
                 <Text style={styles.itemTitle}>{item.title}</Text>
                 <Text style={styles.itemSub}>{item.business_name} - {item.city}</Text>
               </View>
-              <Button
-                title={item.is_featured ? 'Unfeature' : 'Feature'}
-                variant={item.is_featured ? 'danger' : 'outline'}
-                onPress={() => handleFeature(item.id)}
-                style={{ paddingHorizontal: spacing.sm, minHeight: 36 }}
-                textStyle={{ fontSize: 12 }}
-              />
+              <View style={{ gap: spacing.xs }}>
+                <Button
+                  title={item.is_featured ? 'Unfeature' : 'Feature'}
+                  variant={item.is_featured ? 'danger' : 'outline'}
+                  onPress={() => handleFeature(item.id)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+                <Button
+                  title="Delete"
+                  variant="danger"
+                  onPress={() => handleDeleteListing(item.id, item.title)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+              </View>
             </View>
           )}
           contentContainerStyle={styles.listContent}
