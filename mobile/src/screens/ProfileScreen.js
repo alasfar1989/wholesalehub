@@ -34,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [references, setReferences] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  const [expiringSoon, setExpiringSoon] = useState(0);
   const [tab, setTab] = useState('listings');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -54,6 +55,7 @@ export default function ProfileScreen({ navigation }) {
         api.getFavorites(),
       ]);
       setListings(listingsData.listings);
+      setExpiringSoon(listingsData.expiring_soon || 0);
       setReferences(refsData.references);
       setFavorites(favsData.listings);
     } catch (err) {
@@ -144,6 +146,17 @@ export default function ProfileScreen({ navigation }) {
           )}
           <View style={styles.avatarBadge}><Text style={styles.avatarBadgeText}>Edit</Text></View>
         </TouchableOpacity>
+        {(!user?.avatar_url || !user?.bio) && (
+          <View style={styles.completePrompt}>
+            <Text style={styles.completePromptText}>
+              {!user?.avatar_url && !user?.bio
+                ? 'Add a profile photo and bio to build trust'
+                : !user?.avatar_url
+                ? 'Add a profile photo to build trust'
+                : 'Add a bio to complete your profile'}
+            </Text>
+          </View>
+        )}
         <Text style={styles.name}>{user?.business_name}</Text>
         {user?.badge && (
           <View style={[styles.badge, badgeStyle(user.badge)]}>
@@ -241,6 +254,13 @@ export default function ProfileScreen({ navigation }) {
 
       {tab === 'listings' && (
         <>
+          {expiringSoon > 0 && (
+            <View style={styles.expiryWarning}>
+              <Text style={styles.expiryWarningText}>
+                {expiringSoon} listing{expiringSoon > 1 ? 's' : ''} expiring within 3 days
+              </Text>
+            </View>
+          )}
           {listings.map(item => (
             <ListingCard
               key={item.id}
@@ -443,5 +463,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.lg,
     fontSize: 14,
+  },
+  expiryWarning: {
+    backgroundColor: '#fff3e0',
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  expiryWarningText: {
+    fontSize: 14,
+    color: '#e65100',
+    fontWeight: '600',
+  },
+  completePrompt: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
+    width: '100%',
+  },
+  completePromptText: {
+    fontSize: 13,
+    color: '#1565c0',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

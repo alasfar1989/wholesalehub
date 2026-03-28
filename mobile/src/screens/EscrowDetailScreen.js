@@ -846,6 +846,47 @@ export default function EscrowDetailScreen({ route, navigation }) {
           />
         )}
 
+        {/* Transaction Receipt */}
+        {escrow.status === 'completed' && (
+          <View style={styles.receiptCard}>
+            <Text style={styles.receiptTitle}>Transaction Receipt</Text>
+            <View style={styles.receiptRow}>
+              <Text style={styles.receiptLabel}>Product</Text>
+              <Text style={styles.receiptValue}>{escrow.product_description}</Text>
+            </View>
+            <View style={styles.receiptRow}>
+              <Text style={styles.receiptLabel}>Amount</Text>
+              <Text style={styles.receiptValue}>${Number(escrow.amount).toLocaleString()}</Text>
+            </View>
+            <View style={styles.receiptRow}>
+              <Text style={styles.receiptLabel}>Escrow Fee</Text>
+              <Text style={styles.receiptValue}>${Number(escrow.escrow_fee).toFixed(2)}</Text>
+            </View>
+            {escrow.payment_method === 'wire' && Number(escrow.wire_fee || 0) > 0 && (
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Wire Fee</Text>
+                <Text style={styles.receiptValue}>${Number(escrow.wire_fee).toFixed(2)}</Text>
+              </View>
+            )}
+            <View style={[styles.receiptRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, marginTop: spacing.sm }]}>
+              <Text style={[styles.receiptLabel, { fontWeight: '700' }]}>Buyer Paid</Text>
+              <Text style={[styles.receiptValue, { fontWeight: '700' }]}>${Number(escrow.buyer_total || (parseFloat(escrow.amount) + parseFloat(escrow.escrow_fee) + parseFloat(escrow.wire_fee || 0))).toFixed(2)}</Text>
+            </View>
+            <View style={styles.receiptRow}>
+              <Text style={[styles.receiptLabel, { fontWeight: '700' }]}>Seller Received</Text>
+              <Text style={[styles.receiptValue, { fontWeight: '700', color: colors.success }]}>${Number(escrow.seller_payout).toFixed(2)}</Text>
+            </View>
+            <View style={styles.receiptRow}>
+              <Text style={styles.receiptLabel}>Date</Text>
+              <Text style={styles.receiptValue}>{new Date(escrow.updated_at || escrow.created_at).toLocaleDateString()}</Text>
+            </View>
+            <View style={styles.receiptRow}>
+              <Text style={styles.receiptLabel}>Escrow ID</Text>
+              <Text style={[styles.receiptValue, { fontSize: 11 }]}>{escrow.id}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Completed - rating prompt for buyer */}
         {escrow.status === 'completed' && isBuyer && !ratingSubmitted && (
           <View style={styles.actionGroup}>
@@ -1200,6 +1241,39 @@ const styles = StyleSheet.create({
     color: colors.success,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  receiptCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  receiptTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  receiptLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  receiptValue: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '500',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: spacing.sm,
   },
   event: {
     flexDirection: 'row',

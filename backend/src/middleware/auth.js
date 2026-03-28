@@ -21,6 +21,10 @@ async function authenticate(req, res, next) {
     }
 
     req.user = result.rows[0];
+
+    // Update last active (fire and forget)
+    db.query('UPDATE users SET last_active_at = NOW() WHERE id = $1', [req.user.id]).catch(() => {});
+
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });

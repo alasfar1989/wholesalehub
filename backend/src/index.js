@@ -122,6 +122,7 @@ async function applySchemaUpdates() {
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id)');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_phone TEXT');
     await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS badge VARCHAR(30)');
+    await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
     // Set CP Wireless as founder with 5-star rating
     await db.query("UPDATE users SET badge = 'founder', rating_score = 5.0, rating_count = GREATEST(rating_count, 1) WHERE business_name ILIKE '%CP Wireless%' AND badge IS NULL");
     // Auto-approve existing users who don't have referral (pre-referral system)

@@ -13,6 +13,19 @@ const BADGE_CONFIG = {
   rising: { label: 'Rising Star', bg: '#e0f7fa', text: '#00838f' },
 };
 
+function formatLastSeen(dateStr) {
+  if (!dateStr) return null;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 5) return 'Online now';
+  if (mins < 60) return `Active ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Active ${days}d ago`;
+  return `Active ${Math.floor(days / 7)}w ago`;
+}
+
 export default function UserProfileScreen({ route, navigation }) {
   const id = route.params.userId || route.params.id;
   const { user: currentUser } = useAuth();
@@ -70,6 +83,11 @@ export default function UserProfileScreen({ route, navigation }) {
           </View>
         )}
         <Text style={styles.info}>{profile.city} - {profile.category}</Text>
+        {profile.last_active_at && (
+          <Text style={[styles.lastSeen, formatLastSeen(profile.last_active_at) !== 'Online now' && { color: colors.textLight }]}>
+            {formatLastSeen(profile.last_active_at)}
+          </Text>
+        )}
         {profile.rating_score > 0 && (
           <Text style={styles.rating}>
             {'★'.repeat(Math.round(Number(profile.rating_score)))} {Number(profile.rating_score).toFixed(1)} ({profile.rating_count} reviews)
@@ -204,6 +222,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   info: { fontSize: 14, color: colors.textSecondary, marginTop: 2, textTransform: 'capitalize' },
+  lastSeen: { fontSize: 12, color: colors.success, marginTop: 2 },
   rating: { fontSize: 15, color: colors.star, marginTop: spacing.sm },
   actions: { flexDirection: 'row', marginTop: spacing.md, width: '100%' },
   tabs: { flexDirection: 'row', padding: spacing.md },

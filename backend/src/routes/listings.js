@@ -17,7 +17,8 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
 
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
        FROM listings l
        JOIN users u ON l.user_id = u.id
        WHERE l.is_active = TRUE AND u.is_suspended = FALSE AND (l.expires_at IS NULL OR l.expires_at > NOW())
@@ -60,7 +61,8 @@ router.get('/featured', async (req, res) => {
     );
 
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
        FROM listings l
        JOIN users u ON l.user_id = u.id
        JOIN featured_slots fs ON fs.listing_id = l.id
@@ -133,12 +135,23 @@ router.get('/search', async (req, res) => {
     paramCount++;
     values.push(offset);
 
+    let orderClause = 'l.is_featured DESC, l.created_at DESC';
+    const sort = req.query.sort;
+    if (sort === 'price_low') {
+      orderClause = 'l.price ASC NULLS LAST';
+    } else if (sort === 'price_high') {
+      orderClause = 'l.price DESC NULLS LAST';
+    } else if (sort === 'newest') {
+      orderClause = 'l.created_at DESC';
+    }
+
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
        FROM listings l
        JOIN users u ON l.user_id = u.id
        WHERE ${whereClause}
-       ORDER BY l.is_featured DESC, l.created_at DESC
+       ORDER BY ${orderClause}
        LIMIT $${paramCount - 1} OFFSET $${paramCount}`,
       values
     );
@@ -154,10 +167,18 @@ router.get('/search', async (req, res) => {
 router.get('/mine', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT * FROM listings WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT l.*,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
+       FROM listings l WHERE l.user_id = $1 ORDER BY l.created_at DESC`,
       [req.user.id]
     );
-    res.json({ listings: result.rows });
+
+    const expiring = await db.query(
+      "SELECT COUNT(*) as count FROM listings WHERE user_id = $1 AND is_active = TRUE AND expires_at IS NOT NULL AND expires_at < NOW() + INTERVAL '3 days'",
+      [req.user.id]
+    );
+
+    res.json({ listings: result.rows, expiring_soon: parseInt(expiring.rows[0].count) });
   } catch (err) {
     console.error('Get my listings error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -168,7 +189,8 @@ router.get('/mine', authenticate, async (req, res) => {
 router.get('/favorites', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar
+      `SELECT l.*, u.business_name, u.city as user_city, u.rating_score, u.phone as user_phone, u.avatar_url as user_avatar,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
        FROM favorites f
        JOIN listings l ON f.listing_id = l.id
        JOIN users u ON l.user_id = u.id

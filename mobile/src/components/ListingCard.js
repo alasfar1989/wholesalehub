@@ -7,6 +7,13 @@ export default function ListingCard({ listing, onPress }) {
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      {listing.thumbnail && (
+        <Image
+          source={{ uri: listing.thumbnail }}
+          style={styles.thumbnail}
+          resizeMode="cover"
+        />
+      )}
       <View style={styles.header}>
         <View style={[styles.badge, { backgroundColor: isWTS ? colors.wts : colors.wtb }]}>
           <Text style={styles.badgeText}>{listing.type}</Text>
@@ -67,6 +74,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+  },
+  thumbnail: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',

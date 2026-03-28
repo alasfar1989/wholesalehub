@@ -18,6 +18,7 @@ export default function SearchScreen({ navigation }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [sort, setSort] = useState('newest');
 
   async function handleSearch() {
     setLoading(true);
@@ -31,6 +32,7 @@ export default function SearchScreen({ navigation }) {
       if (condition) params.condition = condition;
       if (minPrice) params.min_price = minPrice;
       if (maxPrice) params.max_price = maxPrice;
+      params.sort = sort;
 
       const data = await api.searchListings(params);
       setResults(data.listings);
@@ -94,6 +96,24 @@ export default function SearchScreen({ navigation }) {
           ))}
         </View>
 
+        <View style={styles.typeRow}>
+          {[
+            { key: 'newest', label: 'Newest' },
+            { key: 'price_low', label: 'Price: Low' },
+            { key: 'price_high', label: 'Price: High' },
+          ].map(s => (
+            <TouchableOpacity
+              key={s.key}
+              style={[styles.typeBtn, sort === s.key && styles.typeBtnActive]}
+              onPress={() => setSort(s.key)}
+            >
+              <Text style={[styles.typeBtnText, sort === s.key && styles.typeBtnTextActive]}>
+                {s.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={styles.row}>
           <Input
             placeholder="Min Price"
@@ -123,6 +143,11 @@ export default function SearchScreen({ navigation }) {
             onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
           />
         )}
+        ListHeaderComponent={
+          searched && !loading ? (
+            <Text style={styles.resultCount}>{results.length} listing{results.length !== 1 ? 's' : ''} found</Text>
+          ) : null
+        }
         ListEmptyComponent={
           searched && !loading ? (
             <Text style={styles.empty}>No results found</Text>
@@ -176,6 +201,12 @@ const styles = StyleSheet.create({
   list: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
+  },
+  resultCount: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 14,
+    paddingVertical: spacing.sm,
   },
   empty: {
     textAlign: 'center',

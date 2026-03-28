@@ -87,7 +87,7 @@ router.put('/me/password', authenticate, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, phone, email, avatar_url, business_name, city, category, bio, rating_score, rating_count, badge, is_suspended, created_at FROM users WHERE id = $1',
+      'SELECT id, phone, email, avatar_url, business_name, city, category, bio, rating_score, rating_count, badge, is_suspended, last_active_at, created_at FROM users WHERE id = $1',
       [req.params.id]
     );
 
