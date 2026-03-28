@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, FlatList, StyleSheet, Alert, TouchableOpacity, Image, RefreshControl, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
@@ -34,6 +35,7 @@ export default function ProfileScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [references, setReferences] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  const [blocks, setBlocks] = useState([]);
   const [expiringSoon, setExpiringSoon] = useState(0);
   const [tab, setTab] = useState('listings');
   const [refreshing, setRefreshing] = useState(false);
@@ -49,15 +51,17 @@ export default function ProfileScreen({ navigation }) {
 
   async function loadData() {
     try {
-      const [listingsData, refsData, favsData] = await Promise.all([
+      const [listingsData, refsData, favsData, blocksData] = await Promise.all([
         api.getMyListings(),
         api.getReferences(user.id),
         api.getFavorites(),
+        api.getBlocks().catch(() => ({ blocks: [] })),
       ]);
       setListings(listingsData.listings);
       setExpiringSoon(listingsData.expiring_soon || 0);
       setReferences(refsData.references);
       setFavorites(favsData.listings);
+      setBlocks(blocksData.blocks || []);
     } catch (err) {
       console.error(err);
     }
@@ -245,6 +249,43 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* Blocked Users */}
+      {blocks.length > 0 && (
+        <View style={styles.blockedSection}>
+          <TouchableOpacity
+            style={styles.blockedHeader}
+            onPress={() => setTab(tab === 'blocked' ? 'listings' : 'blocked')}
+          >
+            <View style={styles.blockedHeaderLeft}>
+              <Ionicons name="ban-outline" size={18} color={colors.error} />
+              <Text style={styles.blockedHeaderText}>Blocked Users ({blocks.length})</Text>
+            </View>
+            <Ionicons name={tab === 'blocked' ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          {tab === 'blocked' && blocks.map(b => (
+            <View key={b.blocked_id} style={styles.blockedRow}>
+              <Text style={styles.blockedName}>{b.business_name}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert('Unblock', `Unblock ${b.business_name}?`, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Unblock', onPress: async () => {
+                      try {
+                        await api.unblockUser(b.blocked_id);
+                        setBlocks(prev => prev.filter(x => x.blocked_id !== b.blocked_id));
+                      } catch (err) { Alert.alert('Error', err.message); }
+                    }},
+                  ]);
+                }}
+                style={styles.unblockBtn}
+              >
+                <Text style={styles.unblockBtnText}>Unblock</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Tabs */}
       <View style={styles.tabs}>
         <TabButton title={`Listings (${listings.length})`} active={tab === 'listings'} onPress={() => setTab('listings')} />
@@ -268,7 +309,13 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
             />
           ))}
-          {listings.length === 0 && <Text style={styles.empty}>No listings yet</Text>}
+          {listings.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="pricetag-outline" size={40} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Listings</Text>
+              <Text style={styles.empty}>Create your first listing to start selling</Text>
+            </View>
+          )}
         </>
       )}
 
@@ -281,7 +328,13 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
             />
           ))}
-          {favorites.length === 0 && <Text style={styles.empty}>No saved listings yet</Text>}
+          {favorites.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="heart-outline" size={40} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Saved Listings</Text>
+              <Text style={styles.empty}>Save listings you're interested in</Text>
+            </View>
+          )}
         </>
       )}
 
@@ -298,7 +351,13 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.refName}>{ref.reference_name}</Text>
             </View>
           ))}
-          {references.length === 0 && <Text style={styles.empty}>No references yet</Text>}
+          {references.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={40} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No References</Text>
+              <Text style={styles.empty}>Add references to build trust</Text>
+            </View>
+          )}
         </>
       )}
     </ScrollView>
@@ -458,11 +517,70 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
   empty: {
     textAlign: 'center',
     color: colors.textSecondary,
-    marginTop: spacing.lg,
+    fontSize: 13,
+  },
+  blockedSection: {
+    backgroundColor: colors.surface,
+    marginTop: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  blockedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  blockedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  blockedHeaderText: {
     fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  blockedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+  },
+  blockedName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  unblockBtn: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 6,
+  },
+  unblockBtnText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
   expiryWarning: {
     backgroundColor: '#fff3e0',

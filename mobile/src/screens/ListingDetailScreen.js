@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Image, Dimensions, StyleSheet, Alert, Linking, Share, TouchableOpacity, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -12,6 +13,7 @@ export default function ListingDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -95,7 +97,8 @@ export default function ListingDetailScreen({ route, navigation }) {
   if (!listing) {
     return (
       <View style={styles.center}>
-        <Text>Listing not found</Text>
+        <Ionicons name="document-outline" size={48} color={colors.textLight} />
+        <Text style={{ color: colors.textSecondary, marginTop: spacing.sm }}>Listing not found</Text>
       </View>
     );
   }
@@ -107,13 +110,31 @@ export default function ListingDetailScreen({ route, navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Photos */}
       {listing.photos && listing.photos.length > 0 && (
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
-          {listing.photos.map((photo, i) => (
-            <TouchableOpacity key={photo.id || i} activeOpacity={0.9} onPress={() => { setGalleryIndex(i); setGalleryVisible(true); }}>
-              <Image source={{ uri: photo.photo_url }} style={styles.photoFull} resizeMode="cover" />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            style={styles.photoScroll}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / Dimensions.get('window').width);
+              setPhotoIndex(idx);
+            }}
+          >
+            {listing.photos.map((photo, i) => (
+              <TouchableOpacity key={photo.id || i} activeOpacity={0.9} onPress={() => { setGalleryIndex(i); setGalleryVisible(true); }}>
+                <Image source={{ uri: photo.photo_url }} style={styles.photoFull} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {listing.photos.length > 1 && (
+            <View style={styles.photoIndicator}>
+              {listing.photos.map((_, i) => (
+                <View key={i} style={[styles.photoDot, photoIndex === i && styles.photoDotActive]} />
+              ))}
+            </View>
+          )}
+        </View>
       )}
 
       {/* Fullscreen Gallery Modal */}
@@ -328,6 +349,26 @@ const styles = StyleSheet.create({
   photoFull: {
     width: Dimensions.get('window').width,
     height: 260,
+  },
+  photoIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+  },
+  photoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.border,
+    marginHorizontal: 3,
+  },
+  photoDotActive: {
+    backgroundColor: colors.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   center: {
     flex: 1,

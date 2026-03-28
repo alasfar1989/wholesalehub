@@ -122,7 +122,11 @@ export default function HomeScreen({ navigation }) {
         ListHeaderComponent={renderFeaturedSection}
         ListEmptyComponent={
           !refreshing && (
-            <Text style={styles.empty}>No listings yet. Be the first to post!</Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="storefront-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Listings Yet</Text>
+              <Text style={styles.empty}>Be the first to post a listing!</Text>
+            </View>
           )
         }
         refreshControl={
@@ -193,10 +197,21 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginVertical: spacing.md,
   },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: spacing.xl * 2,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
   empty: {
     textAlign: 'center',
     color: colors.textSecondary,
-    marginTop: spacing.xl,
-    fontSize: 16,
+    fontSize: 14,
   },
 });

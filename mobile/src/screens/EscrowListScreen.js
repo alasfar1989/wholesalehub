@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -119,7 +120,13 @@ export default function EscrowListScreen({ navigation }) {
           );
         }}
         ListEmptyComponent={
-          !refreshing && <Text style={styles.empty}>No escrow transactions yet</Text>
+          !refreshing && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="shield-checkmark-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Escrow Transactions</Text>
+              <Text style={styles.empty}>Start a secure transaction with the button above</Text>
+            </View>
+          )
         }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={loadEscrows} tintColor={colors.primary} />
@@ -176,5 +183,7 @@ const styles = StyleSheet.create({
   filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   filterText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   filterTextActive: { color: '#fff' },
-  empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 16 },
+  emptyContainer: { alignItems: 'center', marginTop: spacing.xl * 2, paddingHorizontal: spacing.lg },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
+  empty: { textAlign: 'center', color: colors.textSecondary, fontSize: 14 },
 });

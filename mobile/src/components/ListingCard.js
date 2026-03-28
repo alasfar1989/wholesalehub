@@ -2,6 +2,20 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { colors, spacing } from '../utils/theme';
 
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
 export default function ListingCard({ listing, onPress }) {
   const isWTS = listing.type === 'WTS';
 
@@ -39,25 +53,32 @@ export default function ListingCard({ listing, onPress }) {
         <Text style={styles.metaText}>{listing.city}</Text>
       </View>
 
-      {listing.business_name && (
-        <View style={styles.seller}>
-          <View style={styles.sellerInfo}>
-            {listing.user_avatar ? (
-              <Image source={{ uri: listing.user_avatar }} style={styles.sellerAvatar} />
-            ) : (
-              <View style={styles.sellerAvatarFallback}>
-                <Text style={styles.sellerAvatarText}>{listing.business_name.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
-            <Text style={styles.sellerName}>{listing.business_name}</Text>
-          </View>
+      <View style={styles.seller}>
+        <View style={styles.sellerInfo}>
+          {listing.business_name && (
+            <>
+              {listing.user_avatar ? (
+                <Image source={{ uri: listing.user_avatar }} style={styles.sellerAvatar} />
+              ) : (
+                <View style={styles.sellerAvatarFallback}>
+                  <Text style={styles.sellerAvatarText}>{listing.business_name.charAt(0).toUpperCase()}</Text>
+                </View>
+              )}
+              <Text style={styles.sellerName}>{listing.business_name}</Text>
+            </>
+          )}
+        </View>
+        <View style={styles.sellerRight}>
           {listing.rating_score > 0 && (
             <Text style={styles.rating}>
               {'★'.repeat(Math.round(Number(listing.rating_score)))} {Number(listing.rating_score).toFixed(1)}
             </Text>
           )}
+          {listing.created_at && (
+            <Text style={styles.timeAgo}>{timeAgo(listing.created_at)}</Text>
+          )}
         </View>
-      )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -173,8 +194,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500',
   },
+  sellerRight: {
+    alignItems: 'flex-end',
+  },
   rating: {
     fontSize: 13,
     color: colors.star,
+  },
+  timeAgo: {
+    fontSize: 11,
+    color: colors.textLight,
+    marginTop: 2,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Keyboard, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
@@ -7,6 +8,66 @@ import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { colors, spacing } from '../utils/theme';
+
+function getTimelineSteps(hasDeposit) {
+  const steps = ['Confirm', ...(hasDeposit ? ['Deposit'] : []), 'Pay', 'Ship', 'Inspect', 'Deliver', 'Complete'];
+  return steps;
+}
+
+function getStepIndex(status, hasDeposit) {
+  const map = {
+    pending_seller: 0,
+    deposit_pending: 1,
+    pending_payment: hasDeposit ? 2 : 1,
+    payment_received: hasDeposit ? 3 : 2,
+    shipped_to_warehouse: hasDeposit ? 3 : 2,
+    at_warehouse: hasDeposit ? 4 : 3,
+    shipped: hasDeposit ? 5 : 4,
+    delivered: hasDeposit ? 5 : 4,
+    completed: hasDeposit ? 6 : 5,
+  };
+  return map[status] ?? -1;
+}
+
+function EscrowTimeline({ status, hasDeposit }) {
+  if (['cancelled', 'disputed', 'inspection_failed'].includes(status)) return null;
+  const steps = getTimelineSteps(hasDeposit);
+  const currentIdx = getStepIndex(status, hasDeposit);
+
+  return (
+    <View style={timelineStyles.container}>
+      {steps.map((step, i) => {
+        const isDone = i < currentIdx;
+        const isCurrent = i === currentIdx;
+        return (
+          <View key={step} style={timelineStyles.stepWrap}>
+            <View style={timelineStyles.dotRow}>
+              {i > 0 && <View style={[timelineStyles.line, (isDone || isCurrent) && timelineStyles.lineDone]} />}
+              <View style={[timelineStyles.dot, isDone && timelineStyles.dotDone, isCurrent && timelineStyles.dotCurrent]}>
+                {isDone && <Ionicons name="checkmark" size={12} color="#fff" />}
+              </View>
+              {i < steps.length - 1 && <View style={[timelineStyles.line, isDone && timelineStyles.lineDone]} />}
+            </View>
+            <Text style={[timelineStyles.label, (isDone || isCurrent) && timelineStyles.labelActive]}>{step}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const timelineStyles = StyleSheet.create({
+  container: { flexDirection: 'row', backgroundColor: colors.surface, paddingVertical: spacing.md, paddingHorizontal: spacing.xs },
+  stepWrap: { flex: 1, alignItems: 'center' },
+  dotRow: { flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center' },
+  dot: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  dotDone: { backgroundColor: colors.success },
+  dotCurrent: { backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.accent },
+  line: { flex: 1, height: 2, backgroundColor: colors.border },
+  lineDone: { backgroundColor: colors.success },
+  label: { fontSize: 10, color: colors.textLight, marginTop: 4, textAlign: 'center' },
+  labelActive: { color: colors.text, fontWeight: '600' },
+});
 
 const STATUS_LABELS = {
   pending_seller: 'Awaiting Seller Confirmation',
@@ -103,6 +164,9 @@ export default function EscrowDetailScreen({ route, navigation }) {
       <View style={[styles.statusBar, { backgroundColor: STATUS_COLORS[escrow.status] }]}>
         <Text style={styles.statusText}>{STATUS_LABELS[escrow.status]}</Text>
       </View>
+
+      {/* Timeline Stepper */}
+      <EscrowTimeline status={escrow.status} hasDeposit={Number(escrow.seller_deposit || 0) > 0} />
 
       {/* Amount */}
       <View style={styles.amountCard}>

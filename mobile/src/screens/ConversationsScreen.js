@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { colors, spacing } from '../utils/theme';
@@ -53,7 +54,13 @@ export default function ConversationsScreen({ navigation }) {
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          !refreshing && <Text style={styles.empty}>No conversations yet</Text>
+          !refreshing && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubbles-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Conversations</Text>
+              <Text style={styles.empty}>Message a seller to start chatting</Text>
+            </View>
+          )
         }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={loadConversations} tintColor={colors.primary} />
@@ -97,5 +104,7 @@ const styles = StyleSheet.create({
   rowUnread: { backgroundColor: '#f0f4ff' },
   nameUnread: { fontWeight: '800' },
   lastMsgUnread: { color: colors.text, fontWeight: '600' },
-  empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 16 },
+  emptyContainer: { alignItems: 'center', marginTop: spacing.xl * 2, paddingHorizontal: spacing.lg },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
+  empty: { textAlign: 'center', color: colors.textSecondary, fontSize: 14 },
 });

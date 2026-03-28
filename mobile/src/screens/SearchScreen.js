@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import ListingCard from '../components/ListingCard';
 import { colors, spacing } from '../utils/theme';
+
+const HISTORY_KEY = 'search_history';
+const MAX_HISTORY = 8;
 
 export default function SearchScreen({ navigation }) {
   const [keyword, setKeyword] = useState('');
@@ -19,10 +24,37 @@ export default function SearchScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [sort, setSort] = useState('newest');
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  async function loadHistory() {
+    try {
+      const stored = await AsyncStorage.getItem(HISTORY_KEY);
+      if (stored) setHistory(JSON.parse(stored));
+    } catch {}
+  }
+
+  async function saveToHistory(term) {
+    if (!term.trim()) return;
+    try {
+      const updated = [term.trim(), ...history.filter(h => h !== term.trim())].slice(0, MAX_HISTORY);
+      setHistory(updated);
+      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    } catch {}
+  }
+
+  async function clearHistory() {
+    setHistory([]);
+    await AsyncStorage.removeItem(HISTORY_KEY);
+  }
 
   async function handleSearch() {
     setLoading(true);
     setSearched(true);
+    if (keyword) saveToHistory(keyword);
     try {
       const params = {};
       if (keyword) params.keyword = keyword;
@@ -132,6 +164,29 @@ export default function SearchScreen({ navigation }) {
         </View>
 
         <Button title="Search" onPress={handleSearch} loading={loading} />
+
+        {!searched && history.length > 0 && (
+          <View style={styles.historySection}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>Recent Searches</Text>
+              <TouchableOpacity onPress={clearHistory}>
+                <Text style={styles.historyClear}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.historyChips}>
+              {history.map((term, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.historyChip}
+                  onPress={() => { setKeyword(term); }}
+                >
+                  <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                  <Text style={styles.historyChipText}>{term}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -150,7 +205,11 @@ export default function SearchScreen({ navigation }) {
         }
         ListEmptyComponent={
           searched && !loading ? (
-            <Text style={styles.empty}>No results found</Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Results</Text>
+              <Text style={styles.empty}>Try different keywords or filters</Text>
+            </View>
           ) : null
         }
         contentContainerStyle={styles.list}
@@ -208,10 +267,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: spacing.sm,
   },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: spacing.xl * 2,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
   empty: {
     textAlign: 'center',
     color: colors.textSecondary,
-    marginTop: spacing.xl,
-    fontSize: 16,
+    fontSize: 14,
+  },
+  historySection: {
+    marginTop: spacing.md,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  historyClear: {
+    fontSize: 13,
+    color: colors.highlight,
+    fontWeight: '600',
+  },
+  historyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  historyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 16,
+    gap: 4,
+  },
+  historyChipText: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
 });

@@ -105,6 +105,10 @@ class ApiService {
     return this.request(`/users/${userId}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
   }
 
+  getBlocks() {
+    return this.request('/users/me/blocks');
+  }
+
   blockUser(userId) {
     return this.request(`/users/${userId}/block`, { method: 'POST' });
   }
