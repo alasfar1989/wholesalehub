@@ -473,6 +473,30 @@ router.delete('/:id/favorite', authenticate, async (req, res) => {
   }
 });
 
+// POST /listings/:id/renew - renew a listing for 30 more days
+router.post('/:id/renew', authenticate, async (req, res) => {
+  try {
+    const existing = await db.query('SELECT user_id FROM listings WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Listing not found' });
+    }
+    if (existing.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const result = await db.query(
+      `UPDATE listings SET is_active = TRUE, expires_at = NOW() + INTERVAL '30 days', updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+
+    res.json({ listing: result.rows[0] });
+  } catch (err) {
+    console.error('Renew listing error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // DELETE /listings/:id/photos/:photoId - delete a photo
 router.delete('/:id/photos/:photoId', authenticate, async (req, res) => {
   try {

@@ -181,6 +181,52 @@ export default function ProfileScreen({ navigation }) {
         >
           <Text style={styles.supportLinkText}>Help & Support</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            Alert.prompt('Change Password', 'Enter your current password:', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Next',
+                onPress: (currentPass) => {
+                  if (!currentPass) return;
+                  Alert.prompt('New Password', 'Enter your new password (min 6 characters):', [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Next',
+                      onPress: (newPass) => {
+                        if (!newPass || newPass.length < 6) {
+                          Alert.alert('Error', 'Password must be at least 6 characters');
+                          return;
+                        }
+                        Alert.prompt('Confirm Password', 'Confirm your new password:', [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Change',
+                            onPress: async (confirmPass) => {
+                              if (newPass !== confirmPass) {
+                                Alert.alert('Error', 'Passwords do not match');
+                                return;
+                              }
+                              try {
+                                await api.changePassword(currentPass, newPass);
+                                Alert.alert('Success', 'Password changed successfully');
+                              } catch (err) {
+                                Alert.alert('Error', err.message);
+                              }
+                            },
+                          },
+                        ], 'secure-text');
+                      },
+                    },
+                  ], 'secure-text');
+                },
+              },
+            ], 'secure-text');
+          }}
+          style={styles.changePasswordLink}
+        >
+          <Text style={styles.changePasswordLinkText}>Change Password</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccount}>
           <Text style={styles.deleteAccountText}>Delete Account</Text>
         </TouchableOpacity>
@@ -351,6 +397,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   supportLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    textDecorationLine: 'underline',
+  },
+  changePasswordLink: {
+    marginTop: spacing.sm,
+  },
+  changePasswordLinkText: {
     fontSize: 14,
     color: colors.primary,
     textDecorationLine: 'underline',

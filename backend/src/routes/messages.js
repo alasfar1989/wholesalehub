@@ -43,6 +43,15 @@ router.get('/conversations', authenticate, async (req, res) => {
 // GET /messages/:userId - get messages with a user
 router.get('/:userId', authenticate, async (req, res) => {
   try {
+    // Check if either user has blocked the other
+    const blocked = await db.query(
+      'SELECT id FROM blocks WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)',
+      [req.user.id, req.params.userId]
+    );
+    if (blocked.rows.length > 0) {
+      return res.json({ messages: [], blocked: true });
+    }
+
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = 50;
     const offset = (page - 1) * limit;
@@ -64,7 +73,7 @@ router.get('/:userId', authenticate, async (req, res) => {
       [req.params.userId, req.user.id]
     );
 
-    res.json({ messages: result.rows.reverse() });
+    res.json({ messages: result.rows.reverse(), blocked: false });
   } catch (err) {
     console.error('Get messages error:', err);
     res.status(500).json({ error: 'Server error' });

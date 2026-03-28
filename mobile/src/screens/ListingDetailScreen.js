@@ -227,6 +227,22 @@ export default function ListingDetailScreen({ route, navigation }) {
           />
         )}
 
+        {isOwner && listing.is_active === false && (
+          <Button
+            title="Renew Listing"
+            onPress={async () => {
+              try {
+                await api.renewListing(listing.id);
+                Alert.alert('Success', 'Listing renewed successfully');
+                loadListing();
+              } catch (err) {
+                Alert.alert('Error', err.message);
+              }
+            }}
+            style={{ marginBottom: spacing.sm, backgroundColor: colors.primary }}
+          />
+        )}
+
         {isOwner && (
           <>
             {listing.is_active !== false && !listing.is_featured && (

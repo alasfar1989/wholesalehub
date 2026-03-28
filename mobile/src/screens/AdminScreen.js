@@ -15,6 +15,7 @@ export default function AdminScreen({ navigation }) {
   const [escrowRevenue, setEscrowRevenue] = useState(null);
   const [pendingRatings, setPendingRatings] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [reports, setReports] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
@@ -154,6 +155,15 @@ export default function AdminScreen({ navigation }) {
     ]);
   }
 
+  async function loadReports() {
+    try {
+      const data = await api.getAdminReports();
+      setReports(data.reports);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function loadPendingRatings() {
     try {
       const data = await api.getPendingRatings();
@@ -199,6 +209,7 @@ export default function AdminScreen({ navigation }) {
     if (t === 'listings') loadListings();
     if (t === 'escrows') loadEscrows();
     if (t === 'ratings') loadPendingRatings();
+    if (t === 'reports') loadReports();
   }
 
   return (
@@ -209,7 +220,7 @@ export default function AdminScreen({ navigation }) {
         style={styles.tabBar}
         contentContainerStyle={styles.tabBarContent}
       >
-        {['dashboard', 'approvals', 'users', 'listings', 'escrows', 'ratings'].map(t => (
+        {['dashboard', 'approvals', 'users', 'listings', 'escrows', 'ratings', 'reports'].map(t => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, tab === t && styles.tabActive]}
@@ -404,6 +415,30 @@ export default function AdminScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
+      {tab === 'reports' && (
+        <FlatList
+          data={reports}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.listItem}
+              onPress={() => navigation.navigate('UserProfile', { userId: item.reported_user_id })}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemTitle}>Reporter: {item.reporter_name}</Text>
+                <Text style={styles.itemSub}>Reported: {item.reported_name}</Text>
+                <Text style={styles.itemSub}>Reason: {item.reason}</Text>
+                <Text style={styles.itemSub}>{new Date(item.created_at).toLocaleDateString()}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No reports</Text>
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+
       {tab === 'ratings' && (
         <FlatList
           data={pendingRatings}

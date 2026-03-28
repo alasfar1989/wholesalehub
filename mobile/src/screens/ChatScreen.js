@@ -10,6 +10,7 @@ export default function ChatScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const flatListRef = useRef();
   const intervalRef = useRef();
 
@@ -24,6 +25,7 @@ export default function ChatScreen({ route }) {
     try {
       const data = await api.getMessages(userId);
       setMessages(data.messages);
+      if (data.blocked) setBlocked(true);
     } catch (err) {
       console.error(err);
     }
@@ -81,23 +83,29 @@ export default function ChatScreen({ route }) {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
       />
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={text}
-          onChangeText={setText}
-          placeholder="Type a message..."
-          placeholderTextColor={colors.textLight}
-          multiline
-        />
-        <TouchableOpacity
-          style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={!text.trim() || sending}
-        >
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
-      </View>
+      {blocked ? (
+        <View style={styles.blockedBanner}>
+          <Text style={styles.blockedText}>You cannot message this user</Text>
+        </View>
+      ) : (
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.textLight}
+            multiline
+          />
+          <TouchableOpacity
+            style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={!text.trim() || sending}
+          >
+            <Text style={styles.sendText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -162,4 +170,16 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { opacity: 0.5 },
   sendText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  blockedBanner: {
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    alignItems: 'center',
+  },
+  blockedText: {
+    fontSize: 14,
+    color: colors.error,
+    fontWeight: '600',
+  },
 });

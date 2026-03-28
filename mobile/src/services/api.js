@@ -399,6 +399,18 @@ class ApiService {
     const query = status ? `?status=${status}` : '';
     return this.request(`/escrow/admin/all${query}`);
   }
+
+  changePassword(current_password, new_password) {
+    return this.request('/users/me/password', { method: 'PUT', body: JSON.stringify({ current_password, new_password }) });
+  }
+
+  renewListing(id) {
+    return this.request(`/listings/${id}/renew`, { method: 'POST' });
+  }
+
+  getAdminReports() {
+    return this.request('/admin/reports');
+  }
 }
 
 export default new ApiService();

@@ -1,5 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
+const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
@@ -44,6 +45,40 @@ router.get('/me/blocks', authenticate, async (req, res) => {
     res.json({ blocks: result.rows });
   } catch (err) {
     console.error('Get blocks error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /users/me/password - change password
+router.put('/me/password', authenticate, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    // Fetch the password hash from the database (not included in req.user)
+    const userResult = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(current_password, userResult.rows[0].password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 12);
+
+    await db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, req.user.id]);
+
+    res.json({ success: true, message: 'Password updated' });
+  } catch (err) {
+    console.error('Change password error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
