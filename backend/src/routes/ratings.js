@@ -95,6 +95,50 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
+// POST /ratings/admin - admin leaves review on a user (auto-approved)
+router.post(
+  '/admin',
+  authenticate,
+  requireAdmin,
+  [
+    body('to_user_id').notEmpty().withMessage('Target user is required'),
+    body('stars').isInt({ min: 1, max: 5 }).withMessage('Stars must be 1-5'),
+    body('comment').trim().notEmpty().withMessage('Feedback is required'),
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const { to_user_id, stars, comment } = req.body;
+
+      if (to_user_id === req.user.id) {
+        return res.status(400).json({ error: 'Cannot rate yourself' });
+      }
+
+      const userExists = await db.query('SELECT id FROM users WHERE id = $1', [to_user_id]);
+      if (userExists.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const result = await db.query(
+        `INSERT INTO ratings (from_user_id, to_user_id, stars, comment, status)
+         VALUES ($1, $2, $3, $4, 'approved')
+         ON CONFLICT (from_user_id, to_user_id)
+         DO UPDATE SET stars = $3, comment = $4, status = 'approved', created_at = NOW()
+         RETURNING *`,
+        [req.user.id, to_user_id, stars, comment]
+      );
+
+      await recalcRating(to_user_id);
+      await recalcBadge(to_user_id);
+
+      res.status(201).json({ rating: result.rows[0], message: 'Admin review posted' });
+    } catch (err) {
+      console.error('Admin rate user error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
 // POST /ratings - submit rating (goes to moderation)
 router.post(
   '/',

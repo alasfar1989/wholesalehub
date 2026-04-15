@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
@@ -17,6 +17,44 @@ export default function AdminScreen({ navigation }) {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const [reviewStars, setReviewStars] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  function openReviewModal(user) {
+    setReviewTarget(user);
+    setReviewStars(5);
+    setReviewComment('');
+  }
+
+  function closeReviewModal() {
+    setReviewTarget(null);
+    setReviewStars(5);
+    setReviewComment('');
+  }
+
+  async function submitAdminReview() {
+    if (!reviewComment.trim()) {
+      Alert.alert('Error', 'Please enter a comment');
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      await api.adminRateUser({
+        to_user_id: reviewTarget.id,
+        stars: reviewStars,
+        comment: reviewComment.trim(),
+      });
+      closeReviewModal();
+      loadDashboard();
+      Alert.alert('Success', 'Review posted');
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -353,6 +391,13 @@ export default function AdminScreen({ navigation }) {
                   textStyle={{ fontSize: 12 }}
                 />
                 <Button
+                  title="Review"
+                  variant="outline"
+                  onPress={() => openReviewModal(item)}
+                  style={{ paddingHorizontal: spacing.sm, minHeight: 32 }}
+                  textStyle={{ fontSize: 12 }}
+                />
+                <Button
                   title="Delete"
                   variant="danger"
                   onPress={() => handleDeleteUser(item.id, item.business_name)}
@@ -508,6 +553,50 @@ export default function AdminScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
+      <Modal
+        visible={!!reviewTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReviewModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Review {reviewTarget?.business_name}</Text>
+            <Text style={styles.modalLabel}>Rating</Text>
+            <View style={styles.starRow}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <TouchableOpacity key={n} onPress={() => setReviewStars(n)}>
+                  <Text style={styles.starPick}>{n <= reviewStars ? '★' : '☆'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.modalLabel}>Comment</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={reviewComment}
+              onChangeText={setReviewComment}
+              placeholder="Write your review..."
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={closeReviewModal}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title={reviewSubmitting ? 'Posting...' : 'Post Review'}
+                onPress={submitAdminReview}
+                disabled={reviewSubmitting}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -576,4 +665,28 @@ const styles = StyleSheet.create({
   revenueText: { fontSize: 14, fontWeight: '600', color: colors.primary, textAlign: 'center' },
   ratingStars: { fontSize: 16, color: colors.star },
   emptyText: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.lg,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.md },
+  modalLabel: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xs },
+  starRow: { flexDirection: 'row', gap: spacing.sm },
+  starPick: { fontSize: 32, color: colors.star },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: spacing.sm,
+    color: colors.text,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
 });

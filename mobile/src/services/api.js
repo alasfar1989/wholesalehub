@@ -218,6 +218,10 @@ class ApiService {
     return this.request('/ratings', { method: 'POST', body: JSON.stringify(body) });
   }
 
+  adminRateUser(body) {
+    return this.request('/ratings/admin', { method: 'POST', body: JSON.stringify(body) });
+  }
+
   getPendingRatings() {
     return this.request('/ratings/pending');
   }
