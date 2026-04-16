@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing } from '../utils/theme';
@@ -7,6 +8,7 @@ import { colors, spacing } from '../utils/theme';
 export default function ChatScreen({ route }) {
   const { userId, name } = route.params;
   const { user } = useAuth();
+  const headerHeight = useHeaderHeight();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -68,12 +70,8 @@ export default function ChatScreen({ route }) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={headerHeight}
     >
-      <View style={styles.header}>
-        <Text style={styles.headerName}>{name}</Text>
-      </View>
-
       <FlatList
         ref={flatListRef}
         data={messages}
