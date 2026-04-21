@@ -13,10 +13,13 @@ export default function ChatScreen({ route }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [sendError, setSendError] = useState('');
   const flatListRef = useRef();
   const intervalRef = useRef();
 
   useEffect(() => {
+    setBlocked(false);
+    setSendError('');
     loadMessages();
     // Poll for new messages every 5s
     intervalRef.current = setInterval(loadMessages, 5000);
@@ -26,8 +29,8 @@ export default function ChatScreen({ route }) {
   async function loadMessages() {
     try {
       const data = await api.getMessages(userId);
-      setMessages(data.messages);
-      if (data.blocked) setBlocked(true);
+      setMessages(data.messages || []);
+      setBlocked(!!data.blocked);
     } catch (err) {
       console.error(err);
     }
@@ -36,11 +39,14 @@ export default function ChatScreen({ route }) {
   async function handleSend() {
     if (!text.trim()) return;
     setSending(true);
+    setSendError('');
     try {
       await api.sendMessage({ to_user_id: userId, content: text.trim() });
       setText('');
       await loadMessages();
     } catch (err) {
+      const msg = err?.message || 'Failed to send message';
+      setSendError(msg);
       console.error(err);
     } finally {
       setSending(false);
@@ -86,23 +92,30 @@ export default function ChatScreen({ route }) {
           <Text style={styles.blockedText}>You cannot message this user</Text>
         </View>
       ) : (
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Type a message..."
-            placeholderTextColor={colors.textLight}
-            multiline
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!text.trim() || sending}
-          >
-            <Text style={styles.sendText}>Send</Text>
-          </TouchableOpacity>
-        </View>
+        <>
+          {sendError ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{sendError}</Text>
+            </View>
+          ) : null}
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.textLight}
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+              onPress={handleSend}
+              disabled={!text.trim() || sending}
+            >
+              <Text style={styles.sendText}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
     </KeyboardAvoidingView>
   );
@@ -179,5 +192,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.error,
     fontWeight: '600',
+  },
+  errorBanner: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#fee2e2',
+    borderTopWidth: 1,
+    borderTopColor: '#fecaca',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#991b1b',
+    textAlign: 'center',
   },
 });
