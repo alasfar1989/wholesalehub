@@ -183,4 +183,9 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`WholesaleHub API running on port ${PORT}`);
   await applySchemaUpdates();
+  try {
+    await require('./scripts/seedAdminReviewsOnBoot')();
+  } catch (err) {
+    console.error('Boot seed error:', err.message);
+  }
 });
