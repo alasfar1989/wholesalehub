@@ -39,11 +39,19 @@ async function recalcRating(userId) {
 }
 
 module.exports = async function seedAdminReviewsOnBoot() {
-  const admin = await findUserByName(ADMIN_BUSINESS_NAME);
+  // Prefer exact name match; fall back to any is_admin user.
+  let admin = await findUserByName(ADMIN_BUSINESS_NAME);
   if (!admin) {
-    console.log(`[seed] Admin user "${ADMIN_BUSINESS_NAME}" not found — skipping review seed.`);
+    const fallback = await db.query(
+      'SELECT id, business_name FROM users WHERE is_admin = TRUE ORDER BY created_at ASC LIMIT 1'
+    );
+    admin = fallback.rows[0] || null;
+  }
+  if (!admin) {
+    console.log('[seed] No admin user found — skipping review seed.');
     return;
   }
+  console.log(`[seed] Reviewer: ${admin.business_name} (${admin.id})`);
 
   for (const r of REVIEWS) {
     const target = await findUserByName(r.target);
