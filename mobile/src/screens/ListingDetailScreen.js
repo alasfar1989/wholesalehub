@@ -183,7 +183,14 @@ export default function ListingDetailScreen({ route, navigation }) {
         </View>
 
         <View style={styles.detailsGrid}>
-          <DetailItem label="Quantity" value={listing.quantity} />
+          <DetailItem
+            label="Quantity"
+            value={
+              listing.quantity > 1 && listing.quantity_sold > 0
+                ? `${listing.quantity - listing.quantity_sold} of ${listing.quantity} left`
+                : listing.quantity
+            }
+          />
           <DetailItem label="Condition" value={listing.condition} />
           <DetailItem label="Category" value={listing.category} />
           <DetailItem label="City" value={listing.city} />

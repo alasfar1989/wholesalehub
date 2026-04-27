@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS listings (
   description TEXT DEFAULT '',
   price DECIMAL(12,2),
   quantity INTEGER DEFAULT 1,
+  quantity_sold INTEGER NOT NULL DEFAULT 0,
   condition VARCHAR(50) DEFAULT 'new',
   category VARCHAR(100) NOT NULL DEFAULT 'electronics',
   city VARCHAR(100) NOT NULL,
@@ -149,6 +150,7 @@ ALTER TABLE ratings ADD COLUMN IF NOT EXISTS escrow_id UUID REFERENCES escrows(i
 ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS quantity_sold INTEGER NOT NULL DEFAULT 0;
 `;
 
 async function runMigration() {

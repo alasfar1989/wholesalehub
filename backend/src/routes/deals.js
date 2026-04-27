@@ -14,6 +14,7 @@ router.post(
   [
     body('listing_id').notEmpty().withMessage('Listing is required'),
     body('buyer_id').notEmpty().withMessage('Buyer is required'),
+    body('quantity_sold').optional().isInt({ min: 1 }),
     body('stars').optional().isInt({ min: 1, max: 5 }),
     body('comment').optional().trim(),
   ],
@@ -33,14 +34,29 @@ router.post(
       const buyer = await db.query('SELECT id, business_name FROM users WHERE id = $1 AND is_suspended = FALSE', [buyer_id]);
       if (buyer.rows.length === 0) return res.status(404).json({ error: 'Buyer not found' });
 
+      const total = listing.rows[0].quantity || 1;
+      const alreadySold = listing.rows[0].quantity_sold || 0;
+      const remaining = total - alreadySold;
+      if (remaining <= 0) return res.status(400).json({ error: 'Listing is fully sold' });
+
+      const requested = req.body.quantity_sold ? parseInt(req.body.quantity_sold) : remaining;
+      if (requested > remaining) {
+        return res.status(400).json({ error: `Only ${remaining} unit(s) remaining` });
+      }
+
       // Create the deal
       const deal = await db.query(
         'INSERT INTO deals (listing_id, seller_id, buyer_id) VALUES ($1, $2, $3) RETURNING *',
         [listing_id, req.user.id, buyer_id]
       );
 
-      // Mark listing as sold (inactive)
-      await db.query('UPDATE listings SET is_active = FALSE, updated_at = NOW() WHERE id = $1', [listing_id]);
+      // Update sold count; deactivate only if fully sold
+      const newSold = alreadySold + requested;
+      const fullySold = newSold >= total;
+      await db.query(
+        'UPDATE listings SET quantity_sold = $1, is_active = CASE WHEN $2 THEN FALSE ELSE is_active END, updated_at = NOW() WHERE id = $3',
+        [newSold, fullySold, listing_id]
+      );
 
       // Add buyer as reference for seller
       await db.query(

@@ -7,10 +7,15 @@ import { colors, spacing } from '../utils/theme';
 
 export default function MarkSoldScreen({ route, navigation }) {
   const { listing } = route.params;
+  const totalQty = Number(listing.quantity) || 1;
+  const alreadySold = Number(listing.quantity_sold) || 0;
+  const remaining = Math.max(0, totalQty - alreadySold);
+  const hasMultipleUnits = totalQty > 1;
   const [step, setStep] = useState(1); // 1 = search buyer, 2 = rate
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
+  const [quantitySold, setQuantitySold] = useState(String(remaining));
   const [stars, setStars] = useState(5);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,17 +48,34 @@ export default function MarkSoldScreen({ route, navigation }) {
 
   async function handleSubmit() {
     if (!selectedBuyer) return;
+    let qty = remaining;
+    if (hasMultipleUnits) {
+      const parsed = parseInt(quantitySold, 10);
+      if (!parsed || parsed < 1) {
+        Alert.alert('Invalid quantity', 'Enter how many units were sold.');
+        return;
+      }
+      if (parsed > remaining) {
+        Alert.alert('Too many', `Only ${remaining} unit(s) remaining.`);
+        return;
+      }
+      qty = parsed;
+    }
     setLoading(true);
     try {
       await api.createDeal({
         listing_id: listing.id,
         buyer_id: selectedBuyer.id,
+        quantity_sold: qty,
         stars: comment.trim() ? stars : undefined,
         comment: comment.trim() || undefined,
       });
+      const fullySold = qty >= remaining;
       Alert.alert(
         'Deal Recorded!',
-        `Listing marked as sold. ${selectedBuyer.business_name} has been added as a reference and notified to rate you.`,
+        fullySold
+          ? `Listing marked as sold. ${selectedBuyer.business_name} has been added as a reference and notified to rate you.`
+          : `${qty} of ${totalQty} unit(s) sold. ${remaining - qty} remaining. ${selectedBuyer.business_name} has been added as a reference.`,
         [{ text: 'OK', onPress: () => navigation.popToTop() }]
       );
     } catch (err) {
@@ -126,6 +148,19 @@ export default function MarkSoldScreen({ route, navigation }) {
               <Text style={styles.changeLink}>Change</Text>
             </TouchableOpacity>
           </View>
+
+          {hasMultipleUnits && (
+            <>
+              <Text style={styles.heading}>How many units?</Text>
+              <Text style={styles.hint}>{remaining} of {totalQty} remaining</Text>
+              <Input
+                placeholder="Quantity sold"
+                value={quantitySold}
+                onChangeText={setQuantitySold}
+                keyboardType="number-pad"
+              />
+            </>
+          )}
 
           <Text style={styles.heading}>Rate this buyer (optional)</Text>
           <Text style={styles.hint}>Leave a review for your experience with this trader</Text>

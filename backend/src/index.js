@@ -156,6 +156,7 @@ async function applySchemaUpdates() {
       UNIQUE(user_id, listing_id)
     )`);
     await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE');
+    await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS quantity_sold INTEGER NOT NULL DEFAULT 0');
     // Set expiration for existing listings that don't have one (30 days from creation)
     await db.query("UPDATE listings SET expires_at = created_at + INTERVAL '30 days' WHERE expires_at IS NULL");
     // Auto-deactivate expired listings

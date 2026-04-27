@@ -47,7 +47,13 @@ export default function ListingCard({ listing, onPress }) {
 
       <View style={styles.meta}>
         {listing.quantity > 1 && (
-          <Text style={styles.metaText}>Qty: {listing.quantity}</Text>
+          listing.quantity_sold > 0 ? (
+            <Text style={[styles.metaText, styles.soldMeta]}>
+              {listing.quantity_sold} of {listing.quantity} sold
+            </Text>
+          ) : (
+            <Text style={styles.metaText}>Qty: {listing.quantity}</Text>
+          )
         )}
         <Text style={styles.metaText}>{listing.condition}</Text>
         <Text style={styles.metaText}>{listing.city}</Text>
@@ -155,6 +161,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  soldMeta: {
+    color: '#b26a00',
+    backgroundColor: '#fff3e0',
+    fontWeight: '600',
   },
   seller: {
     flexDirection: 'row',
