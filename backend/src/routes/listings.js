@@ -253,7 +253,7 @@ router.post(
 
       const result = await db.query(
         `INSERT INTO listings (user_id, type, title, description, price, quantity, condition, category, city, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + INTERVAL '30 days')
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + INTERVAL '90 days')
          RETURNING *`,
         [
           req.user.id,
@@ -507,7 +507,7 @@ router.post('/:id/renew', authenticate, async (req, res) => {
     }
 
     const result = await db.query(
-      `UPDATE listings SET is_active = TRUE, expires_at = NOW() + INTERVAL '30 days', updated_at = NOW()
+      `UPDATE listings SET is_active = TRUE, expires_at = NOW() + INTERVAL '90 days', updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [req.params.id]
     );
