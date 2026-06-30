@@ -3,6 +3,12 @@
     "name": "WholesaleHub",
     "slug": "wholesalehub",
     "version": "1.0.1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/24a5ae11-8cca-47cd-99bf-a45f8d07f8cf"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +23,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wholesalehub.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIRequiredDeviceCapabilities": [
@@ -30,8 +36,9 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1a1a2e"
       },
-      "package": "com.wholesalehub.app",
-      "versionCode": 2
+      "package": "com.wholesalehubapp.app",
+      "versionCode": 5,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "extra": {
       "apiUrl": "https://wholesalehub-production-25ae.up.railway.app",
