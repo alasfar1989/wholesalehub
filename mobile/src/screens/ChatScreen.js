@@ -1,25 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius } from '../utils/theme';
+
+function sameDay(a, b) {
+  const d1 = new Date(a), d2 = new Date(b);
+  return d1.getFullYear() === d2.getFullYear()
+    && d1.getMonth() === d2.getMonth()
+    && d1.getDate() === d2.getDate();
+}
+
+function dateLabel(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  if (sameDay(d, now)) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, yesterday)) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
+}
 
 export default function ChatScreen({ route }) {
   const { userId, name } = route.params;
   const { user } = useAuth();
   const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const flatListRef = useRef();
   const intervalRef = useRef();
 
   useEffect(() => {
     setBlocked(false);
     setSendError('');
+    setLoaded(false);
     loadMessages();
     // Poll for new messages every 5s
     intervalRef.current = setInterval(loadMessages, 5000);
@@ -33,6 +55,8 @@ export default function ChatScreen({ route }) {
       setBlocked(!!data.blocked);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoaded(true);
     }
   }
 
@@ -53,29 +77,64 @@ export default function ChatScreen({ route }) {
     }
   }
 
-  function renderMessage({ item }) {
+  function renderMessage({ item, index }) {
     const isMine = item.from_user_id === user.id;
+    const prev = messages[index - 1];
+    const next = messages[index + 1];
+    const showDate = index === 0 || !sameDay(item.created_at, prev?.created_at);
+    const lastOfGroup = !next || next.from_user_id !== item.from_user_id || !sameDay(item.created_at, next.created_at);
+
     return (
-      <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-        <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{item.content}</Text>
-        <View style={styles.timeRow}>
-          <Text style={[styles.time, isMine && styles.timeMine]}>
-            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-          {isMine && (
-            <Text style={[styles.readReceipt, item.is_read && styles.readReceiptRead]}>
-              {item.is_read ? ' ✓✓' : ' ✓'}
-            </Text>
+      <>
+        {showDate && (
+          <View style={styles.dateRow}>
+            <Text style={styles.dateLabel}>{dateLabel(item.created_at)}</Text>
+          </View>
+        )}
+        <View style={[styles.msgRow, isMine ? styles.msgRowMine : styles.msgRowTheirs]}>
+          {!isMine && (
+            lastOfGroup ? (
+              <View style={styles.miniAvatar}>
+                <Text style={styles.miniAvatarText}>{(name || '?').charAt(0).toUpperCase()}</Text>
+              </View>
+            ) : (
+              <View style={styles.miniAvatarSpacer} />
+            )
           )}
+          <View
+            style={[
+              styles.bubble,
+              isMine ? styles.bubbleMine : styles.bubbleTheirs,
+              !lastOfGroup && (isMine ? styles.bubbleMineGrouped : styles.bubbleTheirsGrouped),
+              { marginTop: prev && prev.from_user_id === item.from_user_id && !showDate ? 2 : spacing.sm },
+            ]}
+          >
+            <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{item.content}</Text>
+            {lastOfGroup && (
+              <View style={styles.timeRow}>
+                <Text style={[styles.time, isMine && styles.timeMine]}>
+                  {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                {isMine && (
+                  <Ionicons
+                    name={item.is_read ? 'checkmark-done' : 'checkmark'}
+                    size={14}
+                    color={item.is_read ? '#9ad0ff' : 'rgba(255,255,255,0.6)'}
+                    style={{ marginLeft: 3 }}
+                  />
+                )}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </>
     );
   }
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={headerHeight}
     >
       <FlatList
@@ -83,12 +142,24 @@ export default function ChatScreen({ route }) {
         data={messages}
         keyExtractor={item => item.id}
         renderItem={renderMessage}
-        contentContainerStyle={styles.list}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+        contentContainerStyle={[styles.list, messages.length === 0 && styles.listEmpty]}
+        onContentSizeChange={() => messages.length && flatListRef.current?.scrollToEnd()}
+        ListEmptyComponent={
+          loaded && !blocked ? (
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyAvatar}>
+                <Text style={styles.emptyAvatarText}>{(name || '?').charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={styles.emptyTitle}>{name}</Text>
+              <Text style={styles.emptyText}>Send a message to start the conversation</Text>
+            </View>
+          ) : null
+        }
       />
 
       {blocked ? (
-        <View style={styles.blockedBanner}>
+        <View style={[styles.blockedBanner, { paddingBottom: spacing.md + insets.bottom }]}>
+          <Ionicons name="ban-outline" size={16} color={colors.error} />
           <Text style={styles.blockedText}>You cannot message this user</Text>
         </View>
       ) : (
@@ -98,12 +169,12 @@ export default function ChatScreen({ route }) {
               <Text style={styles.errorText}>{sendError}</Text>
             </View>
           ) : null}
-          <View style={styles.inputRow}>
+          <View style={[styles.inputRow, { paddingBottom: spacing.sm + insets.bottom }]}>
             <TextInput
               style={styles.input}
               value={text}
               onChangeText={setText}
-              placeholder="Type a message..."
+              placeholder="Type a message…"
               placeholderTextColor={colors.textLight}
               multiline
             />
@@ -112,7 +183,7 @@ export default function ChatScreen({ route }) {
               onPress={handleSend}
               disabled={!text.trim() || sending}
             >
-              <Text style={styles.sendText}>Send</Text>
+              <Ionicons name="arrow-up" size={22} color="#fff" />
             </TouchableOpacity>
           </View>
         </>
@@ -123,37 +194,68 @@ export default function ChatScreen({ route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerName: { fontSize: 16, fontWeight: '700', color: colors.text },
   list: { padding: spacing.md, paddingBottom: spacing.sm },
+  listEmpty: { flexGrow: 1, justifyContent: 'center' },
+
+  dateRow: { alignItems: 'center', marginVertical: spacing.md },
+  dateLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+
+  msgRow: { flexDirection: 'row', alignItems: 'flex-end' },
+  msgRowMine: { justifyContent: 'flex-end' },
+  msgRowTheirs: { justifyContent: 'flex-start' },
+  miniAvatar: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: colors.primary,
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: spacing.xs, marginBottom: 2,
+  },
+  miniAvatarText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  miniAvatarSpacer: { width: 26, marginRight: spacing.xs },
+
   bubble: {
-    maxWidth: '75%',
-    padding: spacing.sm + 2,
-    borderRadius: 16,
-    marginBottom: spacing.sm,
+    maxWidth: '78%',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 1,
+    borderRadius: 20,
   },
   bubbleMine: {
-    backgroundColor: colors.primary,
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
+    backgroundColor: colors.action,
+    borderBottomRightRadius: 6,
   },
   bubbleTheirs: {
     backgroundColor: colors.surface,
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderBottomLeftRadius: 6,
   },
-  messageText: { fontSize: 15, color: colors.text },
+  bubbleMineGrouped: { borderBottomRightRadius: 20 },
+  bubbleTheirsGrouped: { borderBottomLeftRadius: 20 },
+  messageText: { fontSize: 15, lineHeight: 20, color: colors.text },
   messageTextMine: { color: '#fff' },
-  timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, alignSelf: 'flex-end' },
   time: { fontSize: 11, color: colors.textLight },
   timeMine: { color: 'rgba(255,255,255,0.7)' },
-  readReceipt: { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  readReceiptRead: { color: '#90caf9' },
+
+  emptyWrap: { alignItems: 'center', paddingHorizontal: spacing.lg },
+  emptyAvatar: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: colors.primary,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyAvatarText: { color: '#fff', fontSize: 28, fontWeight: '800' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
+
   inputRow: {
     flexDirection: 'row',
     padding: spacing.sm,
@@ -164,8 +266,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.xl,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: 15,
@@ -173,20 +275,24 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   sendBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.action,
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: spacing.sm,
   },
-  sendBtnDisabled: { opacity: 0.5 },
-  sendText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  sendBtnDisabled: { backgroundColor: colors.borderStrong },
   blockedBanner: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
     padding: spacing.md,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    alignItems: 'center',
   },
   blockedText: {
     fontSize: 14,
@@ -196,7 +302,7 @@ const styles = StyleSheet.create({
   errorBanner: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.errorSoft,
     borderTopWidth: 1,
     borderTopColor: '#fecaca',
   },

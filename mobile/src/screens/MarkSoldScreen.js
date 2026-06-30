@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Keyboard } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 export default function MarkSoldScreen({ route, navigation }) {
   const { listing } = route.params;
@@ -117,6 +118,7 @@ export default function MarkSoldScreen({ route, navigation }) {
             <TouchableOpacity
               key={user.id}
               style={styles.userCard}
+              activeOpacity={0.85}
               onPress={() => selectBuyer(user)}
             >
               <View style={styles.userAvatar}>
@@ -127,8 +129,12 @@ export default function MarkSoldScreen({ route, navigation }) {
                 <Text style={styles.userCity}>{user.city}</Text>
               </View>
               {user.rating_score > 0 && (
-                <Text style={styles.userRating}>★ {Number(user.rating_score).toFixed(1)}</Text>
+                <View style={styles.userRating}>
+                  <Ionicons name="star" size={13} color={colors.star} />
+                  <Text style={styles.userRatingText}>{Number(user.rating_score).toFixed(1)}</Text>
+                </View>
               )}
+              <Ionicons name="chevron-forward" size={20} color={colors.textLight} style={{ marginLeft: spacing.xs }} />
             </TouchableOpacity>
           ))}
 
@@ -141,7 +147,10 @@ export default function MarkSoldScreen({ route, navigation }) {
       {step === 2 && selectedBuyer && (
         <>
           <View style={styles.selectedCard}>
-            <Text style={styles.selectedLabel}>Sold to:</Text>
+            <View style={styles.selectedBadge}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={styles.selectedLabel}>Sold to</Text>
+            </View>
             <Text style={styles.selectedName}>{selectedBuyer.business_name}</Text>
             <Text style={styles.selectedCity}>{selectedBuyer.city}</Text>
             <TouchableOpacity onPress={() => { setSelectedBuyer(null); setStep(1); }}>
@@ -167,8 +176,12 @@ export default function MarkSoldScreen({ route, navigation }) {
 
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map(s => (
-              <TouchableOpacity key={s} onPress={() => setStars(s)}>
-                <Text style={[styles.starIcon, s <= stars && styles.starActive]}>★</Text>
+              <TouchableOpacity key={s} onPress={() => setStars(s)} activeOpacity={0.7}>
+                <Ionicons
+                  name={s <= stars ? 'star' : 'star-outline'}
+                  size={40}
+                  color={s <= stars ? colors.star : colors.borderStrong}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -210,13 +223,16 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   listingInfo: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    ...shadows.sm,
   },
-  listingTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  listingPrice: { fontSize: 20, fontWeight: '800', color: colors.primary, marginTop: spacing.xs },
-  heading: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+  listingTitle: { fontSize: 16, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+  listingPrice: { fontSize: 20, fontWeight: '800', color: colors.primary, letterSpacing: -0.3, marginTop: spacing.xs },
+  heading: { fontSize: 20, fontWeight: '700', color: colors.text, letterSpacing: -0.2, marginBottom: spacing.xs },
   hint: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
   searchingText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm },
   userCard: {
@@ -224,11 +240,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     padding: spacing.md,
-    borderRadius: 10,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     marginBottom: spacing.sm,
+    ...shadows.sm,
   },
   userAvatar: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: radius.pill,
     backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
     marginRight: spacing.sm,
@@ -236,25 +255,27 @@ const styles = StyleSheet.create({
   userAvatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
   userName: { fontSize: 15, fontWeight: '600', color: colors.text },
   userCity: { fontSize: 13, color: colors.textSecondary },
-  userRating: { fontSize: 14, color: colors.star, fontWeight: '600' },
+  userRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  userRatingText: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
   noResults: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.lg, fontSize: 15 },
   selectedCard: {
-    backgroundColor: '#e8f5e9',
-    borderRadius: 12,
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.success,
     padding: spacing.md,
     marginBottom: spacing.lg,
     alignItems: 'center',
   },
-  selectedLabel: { fontSize: 12, color: '#2e7d32', fontWeight: '500' },
-  selectedName: { fontSize: 18, fontWeight: '700', color: '#2e7d32', marginTop: spacing.xs },
-  selectedCity: { fontSize: 14, color: '#388e3c' },
-  changeLink: { fontSize: 14, color: colors.primary, fontWeight: '600', marginTop: spacing.sm },
+  selectedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  selectedLabel: { fontSize: 12, color: colors.success, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  selectedName: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: spacing.xs },
+  selectedCity: { fontSize: 14, color: colors.textSecondary },
+  changeLink: { fontSize: 14, color: colors.action, fontWeight: '600', marginTop: spacing.sm },
   starsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  starIcon: { fontSize: 40, color: colors.border },
-  starActive: { color: colors.star },
 });

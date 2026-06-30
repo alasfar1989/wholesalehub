@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 const CONDITIONS = ['new', 'A stock', 'B stock', 'A/B stock', 'C stock', 'broken', 'refurbished'];
 const CATEGORIES = ['electronics', 'phones', 'laptops', 'tablets', 'accessories', 'components', 'networking', 'other'];
@@ -147,7 +148,7 @@ export default function CreateListingScreen({ route, navigation }) {
           <View key={photo.id} style={styles.photoThumb}>
             <Image source={{ uri: photo.photo_url }} style={styles.photoImage} />
             <TouchableOpacity style={styles.photoRemove} onPress={() => removeExistingPhoto(photo)}>
-              <Text style={styles.photoRemoveText}>X</Text>
+              <Ionicons name="close" size={14} color="#fff" />
             </TouchableOpacity>
           </View>
         ))}
@@ -155,13 +156,13 @@ export default function CreateListingScreen({ route, navigation }) {
           <View key={`new-${i}`} style={styles.photoThumb}>
             <Image source={{ uri }} style={styles.photoImage} />
             <TouchableOpacity style={styles.photoRemove} onPress={() => removeNewPhoto(i)}>
-              <Text style={styles.photoRemoveText}>X</Text>
+              <Ionicons name="close" size={14} color="#fff" />
             </TouchableOpacity>
           </View>
         ))}
         {totalPhotos < 5 && (
-          <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPhotos}>
-            <Text style={styles.addPhotoIcon}>+</Text>
+          <TouchableOpacity style={styles.addPhotoBtn} onPress={pickPhotos} activeOpacity={0.7}>
+            <Ionicons name="camera-outline" size={24} color={colors.action} />
             <Text style={styles.addPhotoText}>Add</Text>
           </TouchableOpacity>
         )}
@@ -173,6 +174,7 @@ export default function CreateListingScreen({ route, navigation }) {
         <TouchableOpacity
           style={[styles.toggle, form.type === 'WTS' && styles.toggleActiveWTS]}
           onPress={() => updateField('type', 'WTS')}
+          activeOpacity={0.85}
         >
           <Text style={[styles.toggleText, form.type === 'WTS' && styles.toggleTextActive]}>
             Want to Sell
@@ -181,6 +183,7 @@ export default function CreateListingScreen({ route, navigation }) {
         <TouchableOpacity
           style={[styles.toggle, form.type === 'WTB' && styles.toggleActiveWTB]}
           onPress={() => updateField('type', 'WTB')}
+          activeOpacity={0.85}
         >
           <Text style={[styles.toggleText, form.type === 'WTB' && styles.toggleTextActive]}>
             Want to Buy
@@ -224,7 +227,7 @@ export default function CreateListingScreen({ route, navigation }) {
             }}
           >
             <View style={[styles.checkbox, form.dmForPrice && styles.checkboxActive]}>
-              {form.dmForPrice && <Text style={styles.checkmark}>✓</Text>}
+              {form.dmForPrice && <Ionicons name="checkmark" size={14} color="#fff" />}
             </View>
             <Text style={styles.dmText}>DM for price</Text>
           </TouchableOpacity>
@@ -246,6 +249,7 @@ export default function CreateListingScreen({ route, navigation }) {
             key={c}
             style={[styles.chip, form.condition === c && styles.chipActive]}
             onPress={() => updateField('condition', c)}
+            activeOpacity={0.85}
           >
             <Text style={[styles.chipText, form.condition === c && styles.chipTextActive]}>
               {c}
@@ -261,6 +265,7 @@ export default function CreateListingScreen({ route, navigation }) {
             key={c}
             style={[styles.chip, form.category === c && styles.chipActive]}
             onPress={() => updateField('category', c)}
+            activeOpacity={0.85}
           >
             <Text style={[styles.chipText, form.category === c && styles.chipTextActive]}>
               {c}
@@ -297,51 +302,49 @@ export default function CreateListingScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md, paddingBottom: 120 },
-  heading: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
-  label: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: spacing.sm },
+  heading: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.4, marginBottom: spacing.lg },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
   photoRow: { flexDirection: 'row', marginBottom: spacing.md },
-  photoThumb: { width: 80, height: 80, borderRadius: 8, marginRight: spacing.sm, position: 'relative' },
-  photoImage: { width: 80, height: 80, borderRadius: 8 },
+  photoThumb: { width: 80, height: 80, borderRadius: radius.md, marginRight: spacing.sm, position: 'relative' },
+  photoImage: { width: 80, height: 80, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   photoRemove: {
     position: 'absolute', top: -6, right: -6,
-    width: 22, height: 22, borderRadius: 11,
+    width: 22, height: 22, borderRadius: radius.pill,
     backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: colors.surface,
   },
-  photoRemoveText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   addPhotoBtn: {
-    width: 80, height: 80, borderRadius: 8,
-    borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed',
+    width: 80, height: 80, borderRadius: radius.md,
+    borderWidth: 1.5, borderColor: colors.borderStrong, borderStyle: 'dashed',
     justifyContent: 'center', alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceAlt, gap: 2,
   },
-  addPhotoIcon: { fontSize: 24, color: colors.textSecondary, fontWeight: '300' },
-  addPhotoText: { fontSize: 11, color: colors.textSecondary },
+  addPhotoText: { fontSize: 11, fontWeight: '600', color: colors.action },
   toggleRow: { flexDirection: 'row', marginBottom: spacing.md, gap: spacing.sm },
   toggle: {
-    flex: 1, padding: spacing.sm + 4, borderRadius: 8,
+    flex: 1, padding: spacing.sm + 4, borderRadius: radius.md,
     borderWidth: 1, borderColor: colors.border, alignItems: 'center', backgroundColor: colors.surface,
   },
   toggleActiveWTS: { backgroundColor: colors.wts, borderColor: colors.wts },
   toggleActiveWTB: { backgroundColor: colors.wtb, borderColor: colors.wtb },
-  toggleText: { fontSize: 15, fontWeight: '600', color: colors.text },
+  toggleText: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
   toggleTextActive: { color: '#fff' },
   row: { flexDirection: 'row' },
   dmToggle: { flexDirection: 'row', alignItems: 'center', marginTop: -4, marginBottom: spacing.sm },
   checkbox: {
-    width: 20, height: 20, borderRadius: 4, borderWidth: 1.5,
-    borderColor: colors.border, marginRight: spacing.xs, justifyContent: 'center', alignItems: 'center',
+    width: 20, height: 20, borderRadius: radius.sm, borderWidth: 1.5,
+    borderColor: colors.borderStrong, marginRight: spacing.xs, justifyContent: 'center', alignItems: 'center',
   },
-  checkboxActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkmark: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  checkboxActive: { backgroundColor: colors.action, borderColor: colors.action },
   dmText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
   chips: { flexDirection: 'row', marginBottom: spacing.md },
   chip: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill,
     borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, marginRight: spacing.sm,
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.text, textTransform: 'capitalize' },
-  chipTextActive: { color: '#fff' },
+  chipActive: { backgroundColor: colors.action, borderColor: colors.action },
+  chipText: { fontSize: 13, fontWeight: '500', color: colors.textSecondary, textTransform: 'capitalize' },
+  chipTextActive: { color: '#fff', fontWeight: '600' },
   uploadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
   uploadingText: { marginLeft: spacing.sm, color: colors.textSecondary, fontSize: 14 },
 });

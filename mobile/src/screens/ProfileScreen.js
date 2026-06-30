@@ -8,7 +8,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import ListingCard from '../components/ListingCard';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 const BADGE_CONFIG = {
   founder: { label: 'Verified Owner', bg: '#e8f5e9', text: '#2e7d32' },
@@ -28,6 +28,23 @@ function badgeStyle(badge) {
 function badgeTextStyle(badge) {
   const c = BADGE_CONFIG[badge];
   return c ? { color: c.text } : {};
+}
+
+function Stars({ score, size = 12 }) {
+  const rounded = Math.round(Number(score));
+  return (
+    <View style={{ flexDirection: 'row' }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <Ionicons
+          key={n}
+          name={n <= rounded ? 'star' : 'star-outline'}
+          size={size}
+          color={colors.star}
+          style={{ marginRight: 1 }}
+        />
+      ))}
+    </View>
+  );
 }
 
 export default function ProfileScreen({ navigation }) {
@@ -91,6 +108,48 @@ export default function ProfileScreen({ navigation }) {
     ]);
   }
 
+  function handleChangePassword() {
+    Alert.prompt('Change Password', 'Enter your current password:', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Next',
+        onPress: (currentPass) => {
+          if (!currentPass) return;
+          Alert.prompt('New Password', 'Enter your new password (min 6 characters):', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Next',
+              onPress: (newPass) => {
+                if (!newPass || newPass.length < 6) {
+                  Alert.alert('Error', 'Password must be at least 6 characters');
+                  return;
+                }
+                Alert.prompt('Confirm Password', 'Confirm your new password:', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Change',
+                    onPress: async (confirmPass) => {
+                      if (newPass !== confirmPass) {
+                        Alert.alert('Error', 'Passwords do not match');
+                        return;
+                      }
+                      try {
+                        await api.changePassword(currentPass, newPass);
+                        Alert.alert('Success', 'Password changed successfully');
+                      } catch (err) {
+                        Alert.alert('Error', err.message);
+                      }
+                    },
+                  },
+                ], 'secure-text');
+              },
+            },
+          ], 'secure-text');
+        },
+      },
+    ], 'secure-text');
+  }
+
   function handleDeleteAccount() {
     Alert.alert(
       'Delete Account',
@@ -122,6 +181,13 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  const completeMessage =
+    !user?.avatar_url && !user?.bio
+      ? 'Add a profile photo and bio to build trust'
+      : !user?.avatar_url
+      ? 'Add a profile photo to build trust'
+      : 'Add a bio to complete your profile';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
     <ScrollView
@@ -139,8 +205,9 @@ export default function ProfileScreen({ navigation }) {
         />
       }
     >
-      <View style={styles.profileCard}>
-        <TouchableOpacity onPress={handleAvatarPick} style={styles.avatarWrap}>
+      {/* Navy hero header */}
+      <View style={styles.hero}>
+        <TouchableOpacity onPress={handleAvatarPick} style={styles.avatarWrap} activeOpacity={0.85}>
           {user?.avatar_url ? (
             <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
           ) : (
@@ -148,105 +215,90 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.avatarText}>{user?.business_name?.charAt(0)?.toUpperCase()}</Text>
             </View>
           )}
-          <View style={styles.avatarBadge}><Text style={styles.avatarBadgeText}>Edit</Text></View>
-        </TouchableOpacity>
-        {(!user?.avatar_url || !user?.bio) && (
-          <View style={styles.completePrompt}>
-            <Text style={styles.completePromptText}>
-              {!user?.avatar_url && !user?.bio
-                ? 'Add a profile photo and bio to build trust'
-                : !user?.avatar_url
-                ? 'Add a profile photo to build trust'
-                : 'Add a bio to complete your profile'}
-            </Text>
+          <View style={styles.avatarEdit}>
+            <Ionicons name="camera" size={14} color="#fff" />
           </View>
-        )}
+        </TouchableOpacity>
+
         <Text style={styles.name}>{user?.business_name}</Text>
+
         {user?.badge && (
           <View style={[styles.badge, badgeStyle(user.badge)]}>
             <Text style={[styles.badgeText, badgeTextStyle(user.badge)]}>{badgeLabel(user.badge)}</Text>
           </View>
         )}
-        <Text style={styles.info}>{user?.city} - {user?.category}</Text>
-        <Text style={styles.phone}>{user?.phone}</Text>
 
-        {user?.rating_score > 0 && (
-          <Text style={styles.rating}>
-            {'★'.repeat(Math.round(Number(user.rating_score)))} {Number(user.rating_score).toFixed(1)} ({user.rating_count} reviews)
-          </Text>
-        )}
-
+        <Text style={styles.info}>{user?.city} · {user?.category}</Text>
+        {user?.phone ? <Text style={styles.phone}>{user.phone}</Text> : null}
         {user?.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
+      </View>
 
-        <View style={styles.actions}>
-          <Button
-            title="Edit Profile"
-            variant="outline"
-            onPress={() => navigation.navigate('EditProfile')}
-            style={{ flex: 1, marginRight: spacing.sm }}
-          />
-          <Button
-            title="Logout"
-            variant="danger"
-            onPress={handleLogout}
-            style={{ flex: 1 }}
-          />
+      {/* Stats card (overlaps the hero) */}
+      <View style={styles.statsCard}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>
+            {user?.rating_score > 0 ? Number(user.rating_score).toFixed(1) : '—'}
+          </Text>
+          <Stars score={user?.rating_score || 0} size={11} />
+          <Text style={styles.statLabel}>{user?.rating_count || 0} reviews</Text>
         </View>
-        <TouchableOpacity
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{listings.length}</Text>
+          <Ionicons name="pricetag-outline" size={14} color={colors.action} />
+          <Text style={styles.statLabel}>Listings</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{references.length}</Text>
+          <Ionicons name="people-outline" size={14} color={colors.action} />
+          <Text style={styles.statLabel}>References</Text>
+        </View>
+      </View>
+
+      {(!user?.avatar_url || !user?.bio) && (
+        <View style={styles.completePrompt}>
+          <Ionicons name="information-circle-outline" size={18} color={colors.action} />
+          <Text style={styles.completePromptText}>{completeMessage}</Text>
+        </View>
+      )}
+
+      {/* Primary actions */}
+      <View style={styles.actions}>
+        <Button
+          title="Edit Profile"
+          variant="outline"
+          onPress={() => navigation.navigate('EditProfile')}
+          style={{ flex: 1, marginRight: spacing.sm }}
+        />
+        <Button
+          title="Logout"
+          variant="danger"
+          onPress={handleLogout}
+          style={{ flex: 1 }}
+        />
+      </View>
+
+      {/* Settings menu */}
+      <View style={styles.menuCard}>
+        <MenuRow
+          icon="help-buoy-outline"
+          label="Help & Support"
           onPress={() => Linking.openURL('mailto:Cpwireless21@gmail.com?subject=WholesaleHub Support')}
-          style={styles.supportLink}
-        >
-          <Text style={styles.supportLinkText}>Help & Support</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            Alert.prompt('Change Password', 'Enter your current password:', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Next',
-                onPress: (currentPass) => {
-                  if (!currentPass) return;
-                  Alert.prompt('New Password', 'Enter your new password (min 6 characters):', [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Next',
-                      onPress: (newPass) => {
-                        if (!newPass || newPass.length < 6) {
-                          Alert.alert('Error', 'Password must be at least 6 characters');
-                          return;
-                        }
-                        Alert.prompt('Confirm Password', 'Confirm your new password:', [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Change',
-                            onPress: async (confirmPass) => {
-                              if (newPass !== confirmPass) {
-                                Alert.alert('Error', 'Passwords do not match');
-                                return;
-                              }
-                              try {
-                                await api.changePassword(currentPass, newPass);
-                                Alert.alert('Success', 'Password changed successfully');
-                              } catch (err) {
-                                Alert.alert('Error', err.message);
-                              }
-                            },
-                          },
-                        ], 'secure-text');
-                      },
-                    },
-                  ], 'secure-text');
-                },
-              },
-            ], 'secure-text');
-          }}
-          style={styles.changePasswordLink}
-        >
-          <Text style={styles.changePasswordLinkText}>Change Password</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteAccount}>
-          <Text style={styles.deleteAccountText}>Delete Account</Text>
-        </TouchableOpacity>
+        />
+        <View style={styles.menuDivider} />
+        <MenuRow
+          icon="lock-closed-outline"
+          label="Change Password"
+          onPress={handleChangePassword}
+        />
+        <View style={styles.menuDivider} />
+        <MenuRow
+          icon="trash-outline"
+          label="Delete Account"
+          onPress={handleDeleteAccount}
+          danger
+        />
       </View>
 
       {/* Blocked Users */}
@@ -288,15 +340,16 @@ export default function ProfileScreen({ navigation }) {
 
       {/* Tabs */}
       <View style={styles.tabs}>
-        <TabButton title={`Listings (${listings.length})`} active={tab === 'listings'} onPress={() => setTab('listings')} />
-        <TabButton title={`Saved (${favorites.length})`} active={tab === 'saved'} onPress={() => setTab('saved')} />
-        <TabButton title={`Refs (${references.length})`} active={tab === 'references'} onPress={() => setTab('references')} />
+        <Segment title={`Listings (${listings.length})`} active={tab === 'listings'} onPress={() => setTab('listings')} />
+        <Segment title={`Saved (${favorites.length})`} active={tab === 'saved'} onPress={() => setTab('saved')} />
+        <Segment title={`Refs (${references.length})`} active={tab === 'references'} onPress={() => setTab('references')} />
       </View>
 
       {tab === 'listings' && (
         <>
           {expiringSoon > 0 && (
             <View style={styles.expiryWarning}>
+              <Ionicons name="time-outline" size={18} color={colors.warning} />
               <Text style={styles.expiryWarningText}>
                 {expiringSoon} listing{expiringSoon > 1 ? 's' : ''} expiring within 3 days
               </Text>
@@ -311,7 +364,9 @@ export default function ProfileScreen({ navigation }) {
           ))}
           {listings.length === 0 && (
             <View style={styles.emptyContainer}>
-              <Ionicons name="pricetag-outline" size={40} color={colors.textLight} />
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="pricetag-outline" size={36} color={colors.textLight} />
+              </View>
               <Text style={styles.emptyTitle}>No Listings</Text>
               <Text style={styles.empty}>Create your first listing to start selling</Text>
             </View>
@@ -330,7 +385,9 @@ export default function ProfileScreen({ navigation }) {
           ))}
           {favorites.length === 0 && (
             <View style={styles.emptyContainer}>
-              <Ionicons name="heart-outline" size={40} color={colors.textLight} />
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="heart-outline" size={36} color={colors.textLight} />
+              </View>
               <Text style={styles.emptyTitle}>No Saved Listings</Text>
               <Text style={styles.empty}>Save listings you're interested in</Text>
             </View>
@@ -348,12 +405,15 @@ export default function ProfileScreen({ navigation }) {
           />
           {references.map(ref => (
             <View key={ref.id} style={styles.refCard}>
+              <Ionicons name="business-outline" size={18} color={colors.action} style={{ marginRight: spacing.sm }} />
               <Text style={styles.refName}>{ref.reference_name}</Text>
             </View>
           ))}
           {references.length === 0 && (
             <View style={styles.emptyContainer}>
-              <Ionicons name="people-outline" size={40} color={colors.textLight} />
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="people-outline" size={36} color={colors.textLight} />
+              </View>
               <Text style={styles.emptyTitle}>No References</Text>
               <Text style={styles.empty}>Add references to build trust</Text>
             </View>
@@ -365,15 +425,27 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-function TabButton({ title, active, onPress }) {
+function MenuRow({ icon, label, onPress, danger }) {
   return (
-    <Button
-      title={title}
-      variant={active ? 'primary' : 'outline'}
+    <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.menuIconWrap, danger && styles.menuIconWrapDanger]}>
+        <Ionicons name={icon} size={18} color={danger ? colors.error : colors.action} />
+      </View>
+      <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
+    </TouchableOpacity>
+  );
+}
+
+function Segment({ title, active, onPress }) {
+  return (
+    <TouchableOpacity
+      style={[styles.segmentBtn, active && styles.segmentBtnActive]}
       onPress={onPress}
-      style={{ flex: 1, marginHorizontal: spacing.xs, minHeight: 40 }}
-      textStyle={{ fontSize: 13 }}
-    />
+      activeOpacity={0.8}
+    >
+      <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>{title}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -385,61 +457,64 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl,
   },
-  profileCard: {
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
+
+  hero: {
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl + spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   avatarWrap: {
     position: 'relative',
     marginBottom: spacing.sm,
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.action,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   avatarText: {
-    fontSize: 30,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: '#fff',
   },
-  avatarBadge: {
+  avatarEdit: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.action,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  avatarBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
+    borderColor: colors.primary,
   },
   name: {
     fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
   },
   badge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 4,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    marginTop: spacing.sm,
   },
   badgeText: {
     fontSize: 12,
@@ -447,98 +522,181 @@ const styles = StyleSheet.create({
   },
   info: {
     fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: spacing.sm,
     textTransform: 'capitalize',
   },
   phone: {
-    fontSize: 14,
-    color: colors.textLight,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
     marginTop: 2,
-  },
-  rating: {
-    fontSize: 15,
-    color: colors.star,
-    marginTop: spacing.sm,
   },
   bio: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.85)',
     marginTop: spacing.sm,
     textAlign: 'center',
+    lineHeight: 20,
   },
+
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+    marginTop: -spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    ...shadows.md,
+  },
+  statItem: { flex: 1, alignItems: 'center', gap: 3 },
+  statValue: { fontSize: 20, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+  statLabel: { fontSize: 11, color: colors.textLight, fontWeight: '500' },
+  statDivider: { width: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+
+  completePrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.actionSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  completePromptText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.actionDark,
+    fontWeight: '500',
+  },
+
   actions: {
     flexDirection: 'row',
     marginTop: spacing.md,
-    width: '100%',
+    marginHorizontal: spacing.md,
   },
-  supportLink: {
+
+  menuCard: {
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
     marginTop: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadows.sm,
   },
-  supportLinkText: {
-    fontSize: 14,
-    color: colors.primary,
-    textDecorationLine: 'underline',
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md - 2,
   },
-  changePasswordLink: {
-    marginTop: spacing.sm,
+  menuIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
+    backgroundColor: colors.actionSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
-  changePasswordLinkText: {
-    fontSize: 14,
-    color: colors.primary,
-    textDecorationLine: 'underline',
+  menuIconWrapDanger: {
+    backgroundColor: colors.errorSoft,
   },
-  deleteAccount: {
-    marginTop: spacing.sm,
+  menuLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
   },
-  deleteAccountText: {
-    fontSize: 14,
+  menuLabelDanger: {
     color: colors.error,
-    textDecorationLine: 'underline',
   },
+  menuDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginLeft: spacing.md + 34 + spacing.md,
+  },
+
   tabs: {
     flexDirection: 'row',
-    padding: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    padding: 4,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+  },
+  segmentBtnActive: {
+    backgroundColor: colors.surface,
+    ...shadows.sm,
+  },
+  segmentText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  segmentTextActive: { color: colors.action },
+
   refCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderRadius: 8,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   refName: {
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
-  refPhone: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
+
   emptyContainer: {
     alignItems: 'center',
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
+  emptyIconWrap: {
+    width: 80, height: 80, borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.text,
-    marginTop: spacing.sm,
     marginBottom: spacing.xs,
+    letterSpacing: -0.2,
   },
   empty: {
     textAlign: 'center',
     color: colors.textSecondary,
     fontSize: 13,
   },
+
   blockedSection: {
     backgroundColor: colors.surface,
-    marginTop: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadows.sm,
   },
   blockedHeader: {
     flexDirection: 'row',
@@ -554,7 +712,7 @@ const styles = StyleSheet.create({
   },
   blockedHeaderText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
   },
   blockedRow: {
@@ -564,7 +722,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.background,
+    borderTopColor: colors.border,
   },
   blockedName: {
     fontSize: 14,
@@ -572,42 +730,33 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   unblockBtn: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceAlt,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
-    borderRadius: 6,
+    borderRadius: radius.sm,
   },
   unblockBtnText: {
     fontSize: 13,
-    color: colors.primary,
-    fontWeight: '600',
+    color: colors.action,
+    fontWeight: '700',
   },
+
   expiryWarning: {
-    backgroundColor: '#fff3e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warningSoft,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderLeftWidth: 4,
     borderLeftColor: colors.warning,
   },
   expiryWarningText: {
+    flex: 1,
     fontSize: 14,
-    color: '#e65100',
+    color: colors.warning,
     fontWeight: '600',
-  },
-  completePrompt: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
-    marginBottom: spacing.sm,
-    width: '100%',
-  },
-  completePromptText: {
-    fontSize: 13,
-    color: '#1565c0',
-    textAlign: 'center',
-    fontWeight: '500',
   },
 });

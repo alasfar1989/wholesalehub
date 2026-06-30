@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TextInput, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius } from '../utils/theme';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [step, setStep] = useState(1); // 1 = phone, 2 = OTP, 3 = new password
@@ -78,7 +79,12 @@ export default function ForgotPasswordScreen({ navigation }) {
           {step === 3 && 'Create your new password'}
         </Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        ) : null}
 
         {step === 1 && (
           <>
@@ -176,17 +182,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
     marginBottom: spacing.xs,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: spacing.lg,
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    justifyContent: 'center',
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
   error: {
     color: colors.error,
     textAlign: 'center',
-    marginBottom: spacing.md,
     fontSize: 14,
+    fontWeight: '500',
   },
   otpHint: {
     fontSize: 14,
@@ -201,9 +219,9 @@ const styles = StyleSheet.create({
     letterSpacing: 12,
     color: colors.text,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
 });

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 export default function PendingApprovalScreen() {
   const { user, logout, refreshUser } = useAuth();
@@ -29,27 +30,31 @@ export default function PendingApprovalScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.icon}>⏳</Text>
-        <Text style={styles.title}>Pending Approval</Text>
-        <Text style={styles.message}>
-          Your account is being reviewed by the admin. You'll receive a notification once approved.
-        </Text>
-        <Text style={styles.hint}>
-          This usually takes a few hours.
-        </Text>
+        <View style={styles.card}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="hourglass-outline" size={40} color={colors.highlight} />
+          </View>
+          <Text style={styles.title}>Pending Approval</Text>
+          <Text style={styles.message}>
+            Your account is being reviewed by the admin. You'll receive a notification once approved.
+          </Text>
+          <Text style={styles.hint}>
+            This usually takes a few hours.
+          </Text>
 
-        <Button
-          title={checking ? "Checking..." : "Check Status"}
-          onPress={handleCheckStatus}
-          loading={checking}
-          style={{ marginTop: spacing.lg, width: '100%' }}
-        />
-        <Button
-          title="Logout"
-          variant="outline"
-          onPress={logout}
-          style={{ marginTop: spacing.sm, width: '100%' }}
-        />
+          <Button
+            title={checking ? "Checking..." : "Check Status"}
+            onPress={handleCheckStatus}
+            loading={checking}
+            style={{ marginTop: spacing.lg, width: '100%' }}
+          />
+          <Button
+            title="Logout"
+            variant="outline"
+            onPress={logout}
+            style={{ marginTop: spacing.sm, width: '100%' }}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -64,10 +69,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
-  icon: {
-    fontSize: 64,
+  card: {
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.xl,
+    ...shadows.sm,
+  },
+  iconCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.pill,
+    backgroundColor: colors.highlightSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.md,
   },
   title: {
@@ -75,6 +95,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
     marginBottom: spacing.sm,
+    letterSpacing: -0.4,
   },
   message: {
     fontSize: 16,

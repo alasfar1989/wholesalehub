@@ -1,14 +1,18 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import ListingCard from '../components/ListingCard';
-import { colors, spacing } from '../utils/theme';
+import SkeletonCard from '../components/SkeletonCard';
+import { colors, spacing, radius } from '../utils/theme';
 
 export default function HomeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [featured, setFeatured] = useState({ wts: [], wtb: [] });
   const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -38,6 +42,7 @@ export default function HomeScreen({ navigation }) {
       console.error(err);
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
   }
 
@@ -52,6 +57,36 @@ export default function HomeScreen({ navigation }) {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  function renderHeader() {
+    return (
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.greeting}>Marketplace</Text>
+            <Text style={styles.logo}>WholesaleHub</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('Messages')} style={styles.headerBtn}>
+            <Ionicons name="chatbubbles-outline" size={24} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.searchBar}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Search')}
+        >
+          <Ionicons name="search" size={18} color={colors.textLight} />
+          <Text style={styles.searchPlaceholder}>Search listings, sellers, locations…</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   function renderFeaturedSection() {
@@ -93,49 +128,40 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>WholesaleHub</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => navigation.navigate('Messages')} style={styles.headerBtn}>
-            <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Search')} style={styles.headerBtn}>
-            <Ionicons name="search-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {renderHeader()}
 
-      <FlatList
-        data={listings}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <ListingCard
-            listing={item}
-            onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
-          />
-        )}
-        ListHeaderComponent={renderFeaturedSection}
-        ListEmptyComponent={
-          !refreshing && (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="storefront-outline" size={48} color={colors.textLight} />
-              <Text style={styles.emptyTitle}>No Listings Yet</Text>
-              <Text style={styles.empty}>Be the first to post a listing!</Text>
-            </View>
-          )
-        }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadData} tintColor={colors.primary} />
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        contentContainerStyle={styles.list}
-      />
+      {loading ? (
+        <View style={styles.skeletonWrap}>
+          {[0, 1, 2, 3].map(i => <SkeletonCard key={i} />)}
+        </View>
+      ) : (
+        <FlatList
+          data={listings}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <ListingCard
+              listing={item}
+              onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
+            />
+          )}
+          ListHeaderComponent={renderFeaturedSection}
+          ListEmptyComponent={
+            !refreshing && (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="storefront-outline" size={48} color={colors.textLight} />
+                <Text style={styles.emptyTitle}>No Listings Yet</Text>
+                <Text style={styles.empty}>Be the first to post a listing!</Text>
+              </View>
+            )
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={loadData} tintColor={colors.action} />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          contentContainerStyle={styles.list}
+        />
+      )}
     </View>
   );
 }
@@ -146,29 +172,57 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.primary,
+    borderBottomLeftRadius: radius.xl,
+    borderBottomRightRadius: radius.xl,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xl + spacing.lg,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.primary,
+    marginBottom: spacing.md,
+  },
+  greeting: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   logo: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: '#fff',
+    letterSpacing: -0.4,
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerBtn: { position: 'relative', padding: spacing.xs },
   unreadBadge: {
-    position: 'absolute', top: -4, right: -6,
+    position: 'absolute', top: -2, right: -4,
     backgroundColor: colors.highlight, borderRadius: 10,
     minWidth: 18, height: 18,
     justifyContent: 'center', alignItems: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2, borderColor: colors.primary,
   },
   unreadBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
+  },
+  searchPlaceholder: {
+    color: colors.textLight,
+    fontSize: 14,
+  },
+  skeletonWrap: {
+    paddingTop: spacing.md,
+  },
   list: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
@@ -182,7 +236,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    letterSpacing: -0.3,
   },
   subTitle: {
     fontSize: 14,

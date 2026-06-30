@@ -4,7 +4,8 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 const WIRE_FEE = 25;
 const MIN_FEE = 50;
@@ -218,7 +219,8 @@ export default function InitiateEscrowScreen({ route, navigation }) {
     return (
       <View style={styles.container}>
         <View style={styles.listHeader}>
-          <TouchableOpacity onPress={goBack}>
+          <TouchableOpacity onPress={goBack} style={styles.backRow}>
+            <Ionicons name="chevron-back" size={16} color={colors.action} />
             <Text style={styles.backLink}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.stepTitle}>
@@ -281,8 +283,8 @@ export default function InitiateEscrowScreen({ route, navigation }) {
       {selectedListing && (
         <View style={styles.selectedCard}>
           <View style={styles.selectedHeader}>
-            <View style={[styles.typeBadge, { backgroundColor: selectedListing.type === 'WTS' ? colors.wts : colors.wtb }]}>
-              <Text style={styles.typeBadgeText}>{selectedListing.type}</Text>
+            <View style={[styles.typeBadge, { backgroundColor: selectedListing.type === 'WTS' ? colors.wtsSoft : colors.wtbSoft }]}>
+              <Text style={[styles.typeBadgeText, { color: selectedListing.type === 'WTS' ? colors.wtsText : colors.wtbText }]}>{selectedListing.type}</Text>
             </View>
             <TouchableOpacity onPress={goBack}>
               <Text style={styles.changeLink}>Change</Text>
@@ -343,8 +345,9 @@ export default function InitiateEscrowScreen({ route, navigation }) {
         </View>
       ))}
 
-      <TouchableOpacity style={styles.addProductBtn} onPress={addLineItem}>
-        <Text style={styles.addProductText}>+ Add More Product</Text>
+      <TouchableOpacity style={styles.addProductBtn} onPress={addLineItem} activeOpacity={0.85}>
+        <Ionicons name="add-circle-outline" size={18} color={colors.action} />
+        <Text style={styles.addProductText}>Add More Product</Text>
       </TouchableOpacity>
 
       {/* Payment Method */}
@@ -450,27 +453,28 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   typeHeader: { padding: spacing.lg, paddingBottom: spacing.md },
-  stepTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  stepTitle: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 4, letterSpacing: -0.4 },
   stepHint: { fontSize: 14, color: colors.textSecondary },
   typeCards: { flexDirection: 'row', paddingHorizontal: spacing.md, gap: spacing.md },
   typeCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: radius.xl,
     padding: spacing.lg,
     alignItems: 'center',
     borderWidth: 2,
+    ...shadows.sm,
   },
   typeIcon: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: radius.pill,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
   typeIconText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  typeCardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  typeCardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4, letterSpacing: -0.2 },
   typeCardHint: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
   listHeader: {
     padding: spacing.md,
@@ -478,7 +482,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backLink: { color: colors.primary, fontSize: 14, fontWeight: '600', marginBottom: spacing.sm },
+  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  backLink: { color: colors.action, fontSize: 14, fontWeight: '600' },
   listContent: { paddingBottom: spacing.xl },
   listingItem: {
     backgroundColor: colors.surface,
@@ -488,32 +493,33 @@ const styles = StyleSheet.create({
   },
   listingItemOwn: { opacity: 0.4 },
   listingRow: { flexDirection: 'row', alignItems: 'center' },
-  listingTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
-  listingPrice: { fontSize: 16, fontWeight: '700', color: colors.primary, marginLeft: spacing.sm },
+  listingTitle: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+  listingPrice: { fontSize: 16, fontWeight: '800', color: colors.primary, marginLeft: spacing.sm, letterSpacing: -0.3 },
   listingSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   listingMeta: { fontSize: 12, color: colors.textLight, marginTop: 2, textTransform: 'capitalize' },
   ownLabel: { fontSize: 11, color: colors.textLight, fontStyle: 'italic', marginTop: 2 },
   selectedCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.actionSoft,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.action,
   },
   selectedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  typeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  selectedTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 4 },
+  typeBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill },
+  typeBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  selectedTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 4, letterSpacing: -0.2 },
   selectedSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  changeLink: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  changeLink: { color: colors.action, fontSize: 14, fontWeight: '600' },
   lineItemCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.sm,
   },
   lineItemHeader: {
     flexDirection: 'row',
@@ -521,66 +527,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
-  lineItemLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
+  lineItemLabel: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
   removeLink: { fontSize: 14, fontWeight: '600', color: colors.error },
   lineSubtotal: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
     textAlign: 'right',
     marginTop: -spacing.xs,
   },
   addProductBtn: {
-    padding: spacing.md,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.action,
+    borderStyle: 'dashed',
+    backgroundColor: colors.actionSoft,
     marginBottom: spacing.md,
   },
-  addProductText: { fontSize: 15, fontWeight: '600', color: colors.primary },
+  addProductText: { fontSize: 15, fontWeight: '700', color: colors.action },
   priceQtyRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  fieldLabel: { fontSize: 14, fontWeight: '500', color: colors.text, marginBottom: spacing.sm },
+  fieldLabel: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.sm, letterSpacing: -0.2 },
   paymentRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   paymentOption: {
     flex: 1,
     padding: spacing.sm + 4,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     backgroundColor: colors.surface,
   },
   paymentActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.actionSoft,
+    borderColor: colors.action,
   },
   paymentText: { fontSize: 15, fontWeight: '600', color: colors.text },
-  paymentTextActive: { color: '#fff' },
+  paymentTextActive: { color: colors.actionDark, fontWeight: '700' },
   feePayerOption: {
     flex: 1,
     padding: spacing.sm + 2,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     backgroundColor: colors.surface,
   },
   feePayerActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.actionSoft,
+    borderColor: colors.action,
   },
   feePayerText: { fontSize: 14, fontWeight: '600', color: colors.text },
-  feePayerTextActive: { color: '#fff' },
+  feePayerTextActive: { color: colors.actionDark, fontWeight: '700' },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: 15 },
   feeCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.sm,
   },
   feeRow: {
     flexDirection: 'row',
@@ -596,5 +607,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   feeTotalLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
-  feeTotalValue: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  feeTotalValue: { fontSize: 15, fontWeight: '800', color: colors.primary, letterSpacing: -0.3 },
 });
