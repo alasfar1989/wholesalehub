@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { body } = require('express-validator');
 const db = require('../config/database');
 const validate = require('../middleware/validate');
+const { postAdminFiveStar } = require('../utils/adminReview');
 
 const router = express.Router();
 
@@ -86,6 +87,17 @@ router.post(
         'INSERT INTO references_table (user_id, reference_name, reference_phone) VALUES ($1, $2, $3)',
         [user.id, referrer.rows[0].business_name, referral_phone]
       );
+
+      // Auto-post a 5-star admin review welcoming the new user.
+      // Best-effort: never let a review failure break signup. Skips the admin's
+      // own account automatically (postAdminFiveStar guards against self-review).
+      if (!isAdmin) {
+        try {
+          await postAdminFiveStar(user.id);
+        } catch (reviewErr) {
+          console.error('Auto admin review error (signup continues):', reviewErr.message);
+        }
+      }
 
       const token = generateToken(user.id);
 
