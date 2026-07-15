@@ -49,6 +49,12 @@
         }
       ]
     ],
-    "owner": "alasfar1"
+    "owner": "alasfar1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/24a5ae11-8cca-47cd-99bf-a45f8d07f8cf"
+    }
   }
 }
