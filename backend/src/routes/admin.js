@@ -100,12 +100,28 @@ router.put('/users/:id/reject', async (req, res) => {
   }
 });
 
-// GET /admin/users - list all users
+// GET /admin/users - list all users (optional ?q= search by name/phone/email/city)
 router.get('/users', async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT id, phone, email, business_name, city, category, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at FROM users ORDER BY created_at DESC'
-    );
+    const q = (req.query.q || '').trim();
+    const cols = 'id, phone, email, business_name, city, category, rating_score, rating_count, is_suspended, is_admin, is_approved, referral_phone, created_at';
+    let result;
+    if (q) {
+      // Match business name, email, city, or the last digits of the phone
+      const digits = q.replace(/\D/g, '');
+      result = await db.query(
+        `SELECT ${cols} FROM users
+         WHERE business_name ILIKE $1
+            OR email ILIKE $1
+            OR city ILIKE $1
+            OR ($2 <> '' AND REGEXP_REPLACE(phone, '\\D', '', 'g') LIKE $3)
+         ORDER BY created_at DESC
+         LIMIT 100`,
+        [`%${q}%`, digits, `%${digits}%`]
+      );
+    } else {
+      result = await db.query(`SELECT ${cols} FROM users ORDER BY created_at DESC`);
+    }
     res.json({ users: result.rows });
   } catch (err) {
     console.error('Admin users error:', err);

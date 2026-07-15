@@ -14,6 +14,8 @@ const messageRoutes = require('./routes/messages');
 const adminRoutes = require('./routes/admin');
 const escrowRoutes = require('./routes/escrow');
 const dealRoutes = require('./routes/deals');
+const offerRoutes = require('./routes/offers');
+const savedSearchRoutes = require('./routes/savedSearches');
 
 const app = express();
 
@@ -83,6 +85,8 @@ app.use('/messages', messageRoutes);
 app.use('/admin', adminRoutes);
 app.use('/escrow', escrowRoutes);
 app.use('/deals', dealRoutes);
+app.use('/offers', offerRoutes);
+app.use('/saved-searches', savedSearchRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -157,6 +161,38 @@ async function applySchemaUpdates() {
     )`);
     await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE');
     await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS quantity_sold INTEGER NOT NULL DEFAULT 0');
+    await db.query('ALTER TABLE listings ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0');
+    // Make-an-offer negotiations
+    await db.query(`CREATE TABLE IF NOT EXISTS offers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      price DECIMAL(12,2) NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      message TEXT DEFAULT '',
+      status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'countered', 'accepted', 'declined', 'withdrawn')),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )`);
+    await db.query('CREATE INDEX IF NOT EXISTS idx_offers_listing ON offers(listing_id)');
+    await db.query('CREATE INDEX IF NOT EXISTS idx_offers_buyer ON offers(buyer_id)');
+    await db.query('CREATE INDEX IF NOT EXISTS idx_offers_seller ON offers(seller_id)');
+    // Saved searches with new-listing alerts
+    await db.query(`CREATE TABLE IF NOT EXISTS saved_searches (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      keyword TEXT,
+      type VARCHAR(3),
+      city TEXT,
+      category TEXT,
+      condition TEXT,
+      min_price DECIMAL(12,2),
+      max_price DECIMAL(12,2),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )`);
+    await db.query('CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id)');
     // Set expiration for existing listings that don't have one (90 days from creation)
     await db.query("UPDATE listings SET expires_at = created_at + INTERVAL '90 days' WHERE expires_at IS NULL");
     // Auto-deactivate expired listings

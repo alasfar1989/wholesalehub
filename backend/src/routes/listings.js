@@ -168,7 +168,8 @@ router.get('/mine', authenticate, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT l.*,
-              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail,
+              (SELECT COUNT(*) FROM favorites WHERE listing_id = l.id) as favorite_count
        FROM listings l WHERE l.user_id = $1 ORDER BY l.created_at DESC`,
       [req.user.id]
     );
@@ -201,6 +202,49 @@ router.get('/favorites', authenticate, async (req, res) => {
     res.json({ listings: result.rows });
   } catch (err) {
     console.error('Get favorites error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /listings/user/:userId - a seller's public storefront (active listings only)
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const listings = await db.query(
+      `SELECT l.*,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) as thumbnail
+       FROM listings l
+       WHERE l.user_id = $1 AND l.is_active = TRUE AND (l.expires_at IS NULL OR l.expires_at > NOW())
+       ORDER BY l.is_featured DESC, l.created_at DESC`,
+      [req.params.userId]
+    );
+
+    const stats = await db.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE is_active = TRUE AND (expires_at IS NULL OR expires_at > NOW())) as active_count,
+         COUNT(*) FILTER (WHERE type = 'WTS') as wts_count,
+         COUNT(*) FILTER (WHERE type = 'WTB') as wtb_count,
+         COALESCE(SUM(quantity_sold), 0) as total_sold
+       FROM listings WHERE user_id = $1`,
+      [req.params.userId]
+    );
+
+    res.json({ listings: listings.rows, stats: stats.rows[0] });
+  } catch (err) {
+    console.error('Storefront error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /listings/:id/view - increment view count (skips the owner's own views)
+router.post('/:id/view', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      'UPDATE listings SET view_count = view_count + 1 WHERE id = $1 AND user_id <> $2 RETURNING view_count',
+      [req.params.id, req.user.id]
+    );
+    res.json({ view_count: result.rows[0]?.view_count ?? null });
+  } catch (err) {
+    console.error('Track view error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -268,6 +312,12 @@ router.post(
         ]
       );
 
+      // Alert users whose saved searches match this new listing
+      try {
+        const { notifySavedSearchMatches } = require('../utils/savedSearchMatch');
+        notifySavedSearchMatches(result.rows[0]);
+      } catch {}
+
       res.status(201).json({ listing: result.rows[0] });
     } catch (err) {
       console.error('Create listing error:', err);
@@ -294,13 +344,17 @@ router.put(
   async (req, res) => {
     try {
       // Verify ownership
-      const existing = await db.query('SELECT user_id FROM listings WHERE id = $1', [req.params.id]);
+      const existing = await db.query(
+        'SELECT user_id, price, quantity, quantity_sold, title FROM listings WHERE id = $1',
+        [req.params.id]
+      );
       if (existing.rows.length === 0) {
         return res.status(404).json({ error: 'Listing not found' });
       }
       if (existing.rows[0].user_id !== req.user.id && !req.user.is_admin) {
         return res.status(403).json({ error: 'Not authorized' });
       }
+      const before = existing.rows[0];
 
       const allowed = ['title', 'description', 'price', 'quantity', 'condition', 'category', 'city', 'is_active'];
       const fields = [];
@@ -327,8 +381,37 @@ router.put(
         `UPDATE listings SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
         values
       );
+      const after = result.rows[0];
 
-      res.json({ listing: result.rows[0] });
+      // Alert users who favorited this listing on a price drop or restock
+      try {
+        const oldPrice = before.price != null ? parseFloat(before.price) : null;
+        const newPrice = after.price != null ? parseFloat(after.price) : null;
+        const priceDropped = oldPrice != null && newPrice != null && newPrice < oldPrice;
+
+        const oldAvailable = (before.quantity || 0) - (before.quantity_sold || 0);
+        const newAvailable = (after.quantity || 0) - (after.quantity_sold || 0);
+        const restocked = oldAvailable <= 0 && newAvailable > 0;
+
+        if (priceDropped || restocked) {
+          const favs = await db.query(
+            'SELECT user_id FROM favorites WHERE listing_id = $1 AND user_id <> $2',
+            [req.params.id, after.user_id]
+          );
+          if (favs.rows.length > 0) {
+            const { sendPushToMultiple } = require('../utils/pushNotifications');
+            const userIds = favs.rows.map(r => r.user_id);
+            const data = { type: 'listing', listingId: req.params.id };
+            if (priceDropped) {
+              sendPushToMultiple(userIds, 'Price Drop', `"${after.title}" dropped to $${newPrice}`, data);
+            } else {
+              sendPushToMultiple(userIds, 'Back in Stock', `"${after.title}" is available again`, data);
+            }
+          }
+        }
+      } catch {}
+
+      res.json({ listing: after });
     } catch (err) {
       console.error('Update listing error:', err);
       res.status(500).json({ error: 'Server error' });
@@ -470,10 +553,28 @@ router.post('/:id/feature', authenticate, async (req, res) => {
 // POST /listings/:id/favorite - save a listing
 router.post('/:id/favorite', authenticate, async (req, res) => {
   try {
-    await db.query(
-      'INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    const inserted = await db.query(
+      'INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
       [req.user.id, req.params.id]
     );
+
+    // Notify the listing owner the first time someone saves it (skip self-saves)
+    if (inserted.rows.length > 0) {
+      try {
+        const listing = await db.query('SELECT user_id, title FROM listings WHERE id = $1', [req.params.id]);
+        const owner = listing.rows[0];
+        if (owner && owner.user_id !== req.user.id) {
+          const { sendPushNotification } = require('../utils/pushNotifications');
+          sendPushNotification(
+            owner.user_id,
+            'Someone saved your listing',
+            `${req.user.business_name} saved "${owner.title}"`,
+            { type: 'listing', listingId: req.params.id }
+          );
+        }
+      } catch {}
+    }
+
     res.json({ saved: true });
   } catch (err) {
     console.error('Favorite error:', err);

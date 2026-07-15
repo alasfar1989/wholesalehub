@@ -204,6 +204,18 @@ router.post('/:id/report', authenticate, async (req, res) => {
       'INSERT INTO reports (reporter_id, reported_id, reason) VALUES ($1, $2, $3)',
       [req.user.id, req.params.id, reason.trim()]
     );
+
+    // Notify admins of the new report
+    try {
+      const { sendPushNotification } = require('../utils/pushNotifications');
+      const reported = await db.query('SELECT business_name FROM users WHERE id = $1', [req.params.id]);
+      const reportedName = reported.rows[0]?.business_name || 'a user';
+      const admins = await db.query('SELECT id FROM users WHERE is_admin = TRUE');
+      for (const admin of admins.rows) {
+        sendPushNotification(admin.id, 'New User Report', `${req.user.business_name} reported ${reportedName}`, { type: 'report' });
+      }
+    } catch {}
+
     res.json({ success: true, message: 'Report submitted' });
   } catch (err) {
     console.error('Report user error:', err);
