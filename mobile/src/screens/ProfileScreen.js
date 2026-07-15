@@ -192,6 +192,17 @@ export default function ProfileScreen({ navigation }) {
             style={{ flex: 1 }}
           />
         </View>
+        <View style={styles.quickLinks}>
+          <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate('Offers')}>
+            <Ionicons name="pricetag-outline" size={20} color={colors.primary} />
+            <Text style={styles.quickLinkText}>My Offers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate('SavedSearches')}>
+            <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+            <Text style={styles.quickLinkText}>Saved Searches</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           onPress={() => Linking.openURL('mailto:Cpwireless21@gmail.com?subject=WholesaleHub Support')}
           style={styles.supportLink}
@@ -306,6 +317,7 @@ export default function ProfileScreen({ navigation }) {
             <ListingCard
               key={item.id}
               listing={item}
+              showStats
               onPress={() => navigation.navigate('ListingDetail', { id: item.id })}
             />
           ))}
@@ -471,6 +483,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: spacing.md,
     width: '100%',
+  },
+  quickLinks: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    width: '100%',
+    gap: spacing.sm,
+  },
+  quickLink: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.background,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 8,
+  },
+  quickLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   supportLink: {
     marginTop: spacing.md,

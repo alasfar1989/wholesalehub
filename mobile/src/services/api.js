@@ -147,6 +147,14 @@ class ApiService {
     return this.request(`/listings/${id}`);
   }
 
+  trackListingView(id) {
+    return this.request(`/listings/${id}/view`, { method: 'POST' });
+  }
+
+  getStorefront(userId) {
+    return this.request(`/listings/user/${userId}`);
+  }
+
   getMyListings() {
     return this.request('/listings/mine');
   }
@@ -252,8 +260,9 @@ class ApiService {
     return this.request('/admin/dashboard');
   }
 
-  getAdminUsers() {
-    return this.request('/admin/users');
+  getAdminUsers(q) {
+    const query = q ? `?q=${encodeURIComponent(q)}` : '';
+    return this.request(`/admin/users${query}`);
   }
 
   getPendingUsers() {
@@ -418,6 +427,36 @@ class ApiService {
 
   getAdminReports() {
     return this.request('/admin/reports');
+  }
+
+  // Offers
+  createOffer(body) {
+    return this.request('/offers', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  getMyOffers() {
+    return this.request('/offers/mine');
+  }
+
+  respondToOffer(id, body) {
+    return this.request(`/offers/${id}/respond`, { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  withdrawOffer(id) {
+    return this.request(`/offers/${id}/withdraw`, { method: 'POST' });
+  }
+
+  // Saved searches
+  getSavedSearches() {
+    return this.request('/saved-searches');
+  }
+
+  saveSearch(body) {
+    return this.request('/saved-searches', { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  deleteSavedSearch(id) {
+    return this.request(`/saved-searches/${id}`, { method: 'DELETE' });
   }
 }
 

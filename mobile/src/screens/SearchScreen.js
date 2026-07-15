@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -49,6 +49,32 @@ export default function SearchScreen({ navigation }) {
   async function clearHistory() {
     setHistory([]);
     await AsyncStorage.removeItem(HISTORY_KEY);
+  }
+
+  function currentFilters() {
+    const body = {};
+    if (keyword) body.keyword = keyword;
+    if (type) body.type = type;
+    if (city) body.city = city;
+    if (category) body.category = category;
+    if (condition) body.condition = condition;
+    if (minPrice) body.min_price = minPrice;
+    if (maxPrice) body.max_price = maxPrice;
+    return body;
+  }
+
+  async function handleSaveSearch() {
+    const body = currentFilters();
+    if (Object.keys(body).length === 0) {
+      Alert.alert('Add a filter', 'Enter at least one filter before saving a search.');
+      return;
+    }
+    try {
+      await api.saveSearch(body);
+      Alert.alert('Search saved', "We'll notify you when a new listing matches.");
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
   }
 
   async function handleSearch() {
@@ -164,6 +190,17 @@ export default function SearchScreen({ navigation }) {
         </View>
 
         <Button title="Search" onPress={handleSearch} loading={loading} />
+
+        <View style={styles.savedRow}>
+          <TouchableOpacity onPress={handleSaveSearch} style={styles.savedAction}>
+            <Ionicons name="notifications-outline" size={16} color={colors.primary} />
+            <Text style={styles.savedActionText}>Save Search</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('SavedSearches')} style={styles.savedAction}>
+            <Ionicons name="bookmark-outline" size={16} color={colors.primary} />
+            <Text style={styles.savedActionText}>Saved</Text>
+          </TouchableOpacity>
+        </View>
 
         {!searched && history.length > 0 && (
           <View style={styles.historySection}>
@@ -283,6 +320,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.textSecondary,
     fontSize: 14,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xl,
+    marginTop: spacing.sm,
+  },
+  savedAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: spacing.xs,
+  },
+  savedActionText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
   historySection: {
     marginTop: spacing.md,

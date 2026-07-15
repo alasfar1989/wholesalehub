@@ -69,6 +69,12 @@ export function AuthProvider({ children }) {
         navigate('EscrowDetail', { id: data.escrowId });
       } else if (data?.type === 'message' && data?.userId) {
         navigate('Chat', { userId: data.userId, name: data.name || 'Chat' });
+      } else if (data?.type === 'offer') {
+        navigate('Offers');
+      } else if (data?.type === 'listing' && data?.listingId) {
+        navigate('ListingDetail', { id: data.listingId });
+      } else if (data?.type === 'report') {
+        navigate('Main', { screen: 'Admin' });
       }
     });
 

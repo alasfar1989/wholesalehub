@@ -24,6 +24,9 @@ import EscrowListScreen from '../screens/EscrowListScreen';
 import InitiateEscrowScreen from '../screens/InitiateEscrowScreen';
 import EscrowDetailScreen from '../screens/EscrowDetailScreen';
 import MarkSoldScreen from '../screens/MarkSoldScreen';
+import MakeOfferScreen from '../screens/MakeOfferScreen';
+import OffersScreen from '../screens/OffersScreen';
+import SavedSearchesScreen from '../screens/SavedSearchesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -107,6 +110,9 @@ export default function AppNavigator() {
           <Stack.Screen name="InitiateEscrow" component={InitiateEscrowScreen} options={{ title: 'New Escrow' }} />
           <Stack.Screen name="EscrowDetail" component={EscrowDetailScreen} options={{ title: 'Escrow Details' }} />
           <Stack.Screen name="MarkSold" component={MarkSoldScreen} options={{ title: 'Mark as Sold' }} />
+          <Stack.Screen name="MakeOffer" component={MakeOfferScreen} options={{ title: 'Make an Offer' }} />
+          <Stack.Screen name="Offers" component={OffersScreen} options={{ title: 'My Offers' }} />
+          <Stack.Screen name="SavedSearches" component={SavedSearchesScreen} options={{ title: 'Saved Searches' }} />
         </>
       )}
     </Stack.Navigator>

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Alert, Keyboard, Image, TouchableOp
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
+import ListingCard from '../components/ListingCard';
 import { colors, spacing } from '../utils/theme';
 
 const BADGE_CONFIG = {
@@ -32,7 +33,8 @@ export default function UserProfileScreen({ route, navigation }) {
   const [profile, setProfile] = useState(null);
   const [references, setReferences] = useState([]);
   const [ratings, setRatings] = useState([]);
-  const [tab, setTab] = useState('ratings');
+  const [listings, setListings] = useState([]);
+  const [tab, setTab] = useState('listings');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,14 +43,16 @@ export default function UserProfileScreen({ route, navigation }) {
 
   async function loadProfile() {
     try {
-      const [userData, refsData, ratingsData] = await Promise.all([
+      const [userData, refsData, ratingsData, storeData] = await Promise.all([
         api.getUser(id),
         api.getReferences(id),
         api.getRatings(id),
+        api.getStorefront(id),
       ]);
       setProfile(userData.user);
       setReferences(refsData.references);
       setRatings(ratingsData.ratings);
+      setListings(storeData.listings);
     } catch (err) {
       Alert.alert('Error', err.message);
     } finally {
@@ -148,9 +152,21 @@ export default function UserProfileScreen({ route, navigation }) {
       </View>
 
       <View style={styles.tabs}>
+        <TabBtn title={`Listings (${listings.length})`} active={tab === 'listings'} onPress={() => setTab('listings')} />
         <TabBtn title={`Reviews (${ratings.length})`} active={tab === 'ratings'} onPress={() => setTab('ratings')} />
-        <TabBtn title={`References (${references.length})`} active={tab === 'references'} onPress={() => setTab('references')} />
+        <TabBtn title={`Refs (${references.length})`} active={tab === 'references'} onPress={() => setTab('references')} />
       </View>
+
+      {tab === 'listings' && listings.map(l => (
+        <ListingCard
+          key={l.id}
+          listing={l}
+          onPress={() => navigation.navigate('ListingDetail', { id: l.id })}
+        />
+      ))}
+      {tab === 'listings' && listings.length === 0 && (
+        <Text style={styles.empty}>No active listings</Text>
+      )}
 
       {tab === 'ratings' && ratings.map(r => (
         <View key={r.id} style={styles.card}>

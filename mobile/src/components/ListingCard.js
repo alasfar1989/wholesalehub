@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing } from '../utils/theme';
 
 function timeAgo(dateStr) {
@@ -16,7 +17,7 @@ function timeAgo(dateStr) {
   return `${months}mo ago`;
 }
 
-export default function ListingCard({ listing, onPress }) {
+export default function ListingCard({ listing, onPress, showStats }) {
   const isWTS = listing.type === 'WTS';
 
   return (
@@ -27,6 +28,18 @@ export default function ListingCard({ listing, onPress }) {
           style={styles.thumbnail}
           resizeMode="cover"
         />
+      )}
+      {showStats && (
+        <View style={styles.statsRow}>
+          <View style={styles.stat}>
+            <Ionicons name="eye-outline" size={15} color={colors.textSecondary} />
+            <Text style={styles.statText}>{listing.view_count || 0} views</Text>
+          </View>
+          <View style={styles.stat}>
+            <Ionicons name="heart-outline" size={15} color={colors.highlight} />
+            <Text style={styles.statText}>{listing.favorite_count || 0} saved</Text>
+          </View>
+        </View>
       )}
       <View style={styles.header}>
         <View style={[styles.badge, { backgroundColor: isWTS ? colors.wts : colors.wtb }]}>
@@ -165,6 +178,24 @@ const styles = StyleSheet.create({
   soldMeta: {
     color: '#b26a00',
     backgroundColor: '#fff3e0',
+    fontWeight: '600',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 13,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   seller: {

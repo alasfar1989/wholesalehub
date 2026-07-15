@@ -19,6 +19,7 @@ export default function ListingDetailScreen({ route, navigation }) {
   useEffect(() => {
     loadListing();
     checkFavorite();
+    api.trackListingView(id).catch(() => {});
   }, [id]);
 
   async function checkFavorite() {
@@ -77,13 +78,26 @@ export default function ListingDetailScreen({ route, navigation }) {
     }
   }
 
+  function shareMessage() {
+    const price = listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price';
+    return `Check out this listing on WholesaleHub!\n\n${listing.title}\nPrice: ${price}\nCondition: ${listing.condition}\nQuantity: ${listing.quantity}\n\nPosted by ${listing.business_name}`;
+  }
+
   async function handleShare() {
     try {
-      const price = listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price';
-      await Share.share({
-        message: `Check out this listing on WholesaleHub!\n\n${listing.title}\nPrice: ${price}\nCondition: ${listing.condition}\nQuantity: ${listing.quantity}\n\nPosted by ${listing.business_name}`,
-      });
+      await Share.share({ message: shareMessage() });
     } catch {}
+  }
+
+  async function handleWhatsApp() {
+    const text = encodeURIComponent(shareMessage());
+    const appUrl = `whatsapp://send?text=${text}`;
+    try {
+      const canOpen = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(canOpen ? appUrl : `https://wa.me/?text=${text}`);
+    } catch {
+      Alert.alert('WhatsApp unavailable', 'Could not open WhatsApp on this device.');
+    }
   }
 
   if (loading) {
@@ -179,6 +193,9 @@ export default function ListingDetailScreen({ route, navigation }) {
             <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
               <Text style={styles.shareBtnText}>Share</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={handleWhatsApp} style={styles.whatsappBtn}>
+              <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -231,6 +248,15 @@ export default function ListingDetailScreen({ route, navigation }) {
             </View>
           </View>
         </View>
+
+        {!isOwner && listing.type === 'WTS' && (
+          <Button
+            title="Make an Offer"
+            variant="outline"
+            onPress={() => navigation.navigate('MakeOffer', { listing })}
+            style={{ marginBottom: spacing.sm }}
+          />
+        )}
 
         {!isOwner && listing.type === 'WTS' && (
           <Button
@@ -518,6 +544,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  whatsappBtn: {
+    backgroundColor: '#25D366',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   galleryOverlay: {
     flex: 1,

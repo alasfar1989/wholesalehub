@@ -10,6 +10,7 @@ export default function AdminScreen({ navigation }) {
   const [dashboard, setDashboard] = useState(null);
   const [tab, setTab] = useState('dashboard');
   const [users, setUsers] = useState([]);
+  const [userQuery, setUserQuery] = useState('');
   const [listings, setListings] = useState([]);
   const [escrows, setEscrows] = useState([]);
   const [escrowRevenue, setEscrowRevenue] = useState(null);
@@ -74,9 +75,9 @@ export default function AdminScreen({ navigation }) {
     }
   }
 
-  async function loadUsers() {
+  async function loadUsers(q) {
     try {
-      const data = await api.getAdminUsers();
+      const data = await api.getAdminUsers(q);
       setUsers(data.users);
     } catch (err) {
       console.error(err);
@@ -100,7 +101,7 @@ export default function AdminScreen({ navigation }) {
         onPress: async () => {
           try {
             await api.toggleSuspend(userId);
-            loadUsers();
+            loadUsers(userQuery);
           } catch (err) {
             Alert.alert('Error', err.message);
           }
@@ -118,7 +119,7 @@ export default function AdminScreen({ navigation }) {
         onPress: async () => {
           try {
             await api.deleteUser(userId);
-            loadUsers();
+            loadUsers(userQuery);
             loadDashboard();
           } catch (err) {
             Alert.alert('Error', err.message);
@@ -374,6 +375,27 @@ export default function AdminScreen({ navigation }) {
         <FlatList
           data={users}
           keyExtractor={item => item.id}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <View style={styles.searchBox}>
+              <TextInput
+                style={styles.searchInput}
+                value={userQuery}
+                onChangeText={(t) => { setUserQuery(t); loadUsers(t); }}
+                placeholder="Search by name, phone, email, or city"
+                placeholderTextColor={colors.textLight}
+                autoCapitalize="none"
+                returnKeyType="search"
+                onSubmitEditing={() => loadUsers(userQuery)}
+              />
+              {userQuery.length > 0 && (
+                <TouchableOpacity onPress={() => { setUserQuery(''); loadUsers(''); }}>
+                  <Text style={styles.searchClear}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          }
+          ListEmptyComponent={<Text style={styles.emptyText}>No users found</Text>}
           renderItem={({ item }) => (
             <View style={styles.listItem}>
               <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.navigate('UserProfile', { userId: item.id })}>
@@ -495,7 +517,7 @@ export default function AdminScreen({ navigation }) {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.listItem}
-              onPress={() => navigation.navigate('UserProfile', { userId: item.reported_user_id })}
+              onPress={() => navigation.navigate('UserProfile', { userId: item.reported_id })}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>Reporter: {item.reporter_name}</Text>
@@ -643,6 +665,30 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 28, fontWeight: '800', color: colors.primary },
   statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs },
   listContent: { paddingBottom: spacing.xl },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    fontSize: 14,
+    color: colors.text,
+  },
+  searchClear: {
+    fontSize: 13,
+    color: colors.highlight,
+    fontWeight: '600',
+    paddingHorizontal: spacing.xs,
+  },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
