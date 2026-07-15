@@ -114,13 +114,17 @@ export default function ListingDetailScreen({ route, navigation }) {
   }
 
   async function handleWhatsApp() {
-    const text = encodeURIComponent(shareMessage());
-    const appUrl = `whatsapp://send?text=${text}`;
     try {
-      const canOpen = await Linking.canOpenURL(appUrl);
-      await Linking.openURL(canOpen ? appUrl : `https://wa.me/?text=${text}`);
+      const text = encodeURIComponent(shareMessage());
+      // openURL (unlike canOpenURL) doesn't need the scheme whitelisted in
+      // Info.plist, so open the WhatsApp app directly; fall back to wa.me.
+      try {
+        await Linking.openURL(`whatsapp://send?text=${text}`);
+      } catch {
+        await Linking.openURL(`https://wa.me/?text=${text}`);
+      }
     } catch {
-      Alert.alert('WhatsApp unavailable', 'Could not open WhatsApp on this device.');
+      Alert.alert('WhatsApp unavailable', 'WhatsApp does not appear to be installed on this device.');
     }
   }
 

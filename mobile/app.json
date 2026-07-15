@@ -30,6 +30,9 @@
       "buildNumber": "11",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ],
         "UIRequiredDeviceCapabilities": [
           "armv7"
         ]
