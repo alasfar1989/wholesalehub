@@ -65,6 +65,30 @@ app.get('/terms', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'terms.html'));
 });
 
+// Shareable public listing page (rich preview for WhatsApp/social; deep-links into the app)
+app.get('/listing/:id', async (req, res) => {
+  const db = require('./config/database');
+  const { renderListingPage, renderNotFound } = require('./utils/listingPage');
+  try {
+    const result = await db.query(
+      `SELECT l.id, l.title, l.price, l.condition, l.quantity, l.city, l.description, l.type, l.is_active,
+              u.business_name,
+              (SELECT photo_url FROM listing_photos WHERE listing_id = l.id ORDER BY sort_order LIMIT 1) AS photo
+       FROM listings l JOIN users u ON l.user_id = u.id
+       WHERE l.id = $1`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).type('html').send(renderNotFound());
+    }
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    res.type('html').send(renderListingPage(result.rows[0], baseUrl));
+  } catch (err) {
+    console.error('Listing page error:', err);
+    res.status(500).type('html').send(renderNotFound());
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({

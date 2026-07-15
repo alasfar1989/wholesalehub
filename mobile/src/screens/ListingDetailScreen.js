@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Image, Dimensions, StyleSheet, Alert, Linking, Share, TouchableOpacity, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -101,7 +102,9 @@ export default function ListingDetailScreen({ route, navigation }) {
 
   function shareMessage() {
     const price = listing.price ? `$${Number(listing.price).toLocaleString()}` : 'DM for price';
-    return `Check out this listing on WholesaleHub!\n\n${listing.title}\nPrice: ${price}\nCondition: ${listing.condition}\nQuantity: ${listing.quantity}\n\nPosted by ${listing.business_name}`;
+    const base = Constants.expoConfig?.extra?.apiUrl || 'https://wholesalehub-production-25ae.up.railway.app';
+    const link = `${base}/listing/${listing.id}`;
+    return `Check out this listing on WholesaleHub!\n\n${listing.title}\nPrice: ${price}\nCondition: ${listing.condition}\nQuantity: ${listing.quantity}\n\nPosted by ${listing.business_name}\n\nView it here: ${link}`;
   }
 
   async function handleShare() {
