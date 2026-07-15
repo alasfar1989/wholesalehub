@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 export default function Button({ title, onPress, loading, variant = 'primary', style, textStyle, disabled }) {
   const isPrimary = variant === 'primary';
@@ -19,10 +19,10 @@ export default function Button({ title, onPress, loading, variant = 'primary', s
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary || isDanger ? '#fff' : colors.primary} />
+        <ActivityIndicator color={isPrimary || isDanger ? '#fff' : colors.action} />
       ) : (
         <Text
           style={[
@@ -44,34 +44,37 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: spacing.sm + 4,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 50,
   },
   primary: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.action,
+    ...shadows.sm,
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderWidth: 1.5,
+    borderColor: colors.action,
   },
   danger: {
     backgroundColor: colors.error,
+    ...shadows.sm,
   },
   disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   text: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   primaryText: {
     color: '#fff',
   },
   outlineText: {
-    color: colors.primary,
+    color: colors.action,
   },
   dangerText: {
     color: '#fff',

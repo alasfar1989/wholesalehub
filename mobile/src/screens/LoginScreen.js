@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -35,12 +36,22 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.logo}>WholesaleHub</Text>
+          <View style={styles.brandMark}>
+            <Ionicons name="cube" size={34} color="#fff" />
+          </View>
+          <Text style={styles.logo}>
+            Wholesale<Text style={styles.logoAccent}>Hub</Text>
+          </Text>
           <Text style={styles.subtitle}>B2B Electronics Marketplace</Text>
         </View>
 
         <View style={styles.form}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle" size={16} color={colors.error} />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          ) : null}
 
           <Input
             label="Phone Number"
@@ -94,10 +105,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
+  brandMark: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    ...shadows.md,
+  },
   logo: {
     fontSize: 32,
     fontWeight: '800',
     color: colors.primary,
+    letterSpacing: -0.4,
+  },
+  logoAccent: {
+    color: colors.action,
   },
   subtitle: {
     fontSize: 14,
@@ -107,10 +132,21 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    justifyContent: 'center',
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
   error: {
     color: colors.error,
     textAlign: 'center',
-    marginBottom: spacing.md,
     fontSize: 14,
+    fontWeight: '500',
   },
 });

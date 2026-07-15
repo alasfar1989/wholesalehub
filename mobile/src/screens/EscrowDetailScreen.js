@@ -7,7 +7,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 function getTimelineSteps(hasDeposit) {
   const steps = ['Confirm', ...(hasDeposit ? ['Deposit'] : []), 'Pay', 'Ship', 'Inspect', 'Deliver', 'Complete'];
@@ -44,7 +44,8 @@ function EscrowTimeline({ status, hasDeposit }) {
             <View style={timelineStyles.dotRow}>
               {i > 0 && <View style={[timelineStyles.line, (isDone || isCurrent) && timelineStyles.lineDone]} />}
               <View style={[timelineStyles.dot, isDone && timelineStyles.dotDone, isCurrent && timelineStyles.dotCurrent]}>
-                {isDone && <Ionicons name="checkmark" size={12} color="#fff" />}
+                {isDone && <Ionicons name="checkmark" size={13} color="#fff" />}
+                {isCurrent && <View style={timelineStyles.dotCurrentInner} />}
               </View>
               {i < steps.length - 1 && <View style={[timelineStyles.line, isDone && timelineStyles.lineDone]} />}
             </View>
@@ -57,16 +58,28 @@ function EscrowTimeline({ status, hasDeposit }) {
 }
 
 const timelineStyles = StyleSheet.create({
-  container: { flexDirection: 'row', backgroundColor: colors.surface, paddingVertical: spacing.md, paddingHorizontal: spacing.xs },
+  container: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    ...shadows.sm,
+  },
   stepWrap: { flex: 1, alignItems: 'center' },
   dotRow: { flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center' },
-  dot: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
-  dotDone: { backgroundColor: colors.success },
-  dotCurrent: { backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.accent },
+  dot: { width: 24, height: 24, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  dotDone: { backgroundColor: colors.success, borderColor: colors.success },
+  dotCurrent: { backgroundColor: colors.action, borderColor: colors.actionDark },
+  dotCurrentInner: { width: 8, height: 8, borderRadius: radius.pill, backgroundColor: '#fff' },
   line: { flex: 1, height: 2, backgroundColor: colors.border },
   lineDone: { backgroundColor: colors.success },
-  label: { fontSize: 10, color: colors.textLight, marginTop: 4, textAlign: 'center' },
-  labelActive: { color: colors.text, fontWeight: '600' },
+  label: { fontSize: 10, color: colors.textLight, marginTop: 6, textAlign: 'center' },
+  labelActive: { color: colors.text, fontWeight: '700' },
 });
 
 const STATUS_LABELS = {
@@ -84,19 +97,20 @@ const STATUS_LABELS = {
   cancelled: 'Cancelled',
 };
 
-const STATUS_COLORS = {
-  pending_seller: colors.warning,
-  deposit_pending: colors.warning,
-  pending_payment: colors.warning,
-  payment_received: colors.accent,
-  shipped_to_warehouse: colors.wtb,
-  at_warehouse: colors.warning,
-  shipped: colors.wtb,
-  delivered: colors.wts,
-  completed: colors.success,
-  disputed: colors.error,
-  inspection_failed: colors.error,
-  cancelled: colors.textLight,
+// Soft tinted pills (bg + text) for escrow state — mirrors the WTS/WTB badge style.
+const STATUS_STYLES = {
+  pending_seller: { bg: colors.warningSoft, text: colors.warning },
+  deposit_pending: { bg: colors.warningSoft, text: colors.warning },
+  pending_payment: { bg: colors.warningSoft, text: colors.warning },
+  payment_received: { bg: colors.actionSoft, text: colors.actionDark },
+  shipped_to_warehouse: { bg: colors.wtbSoft, text: colors.wtbText },
+  at_warehouse: { bg: colors.warningSoft, text: colors.warning },
+  shipped: { bg: colors.wtbSoft, text: colors.wtbText },
+  delivered: { bg: colors.wtsSoft, text: colors.wtsText },
+  completed: { bg: colors.successSoft, text: colors.success },
+  disputed: { bg: colors.errorSoft, text: colors.error },
+  inspection_failed: { bg: colors.errorSoft, text: colors.error },
+  cancelled: { bg: colors.surfaceAlt, text: colors.textSecondary },
 };
 
 export default function EscrowDetailScreen({ route, navigation }) {
@@ -151,8 +165,13 @@ export default function EscrowDetailScreen({ route, navigation }) {
     }
   }
 
-  if (loading) return <View style={styles.center}><Text>Loading...</Text></View>;
-  if (!escrow) return <View style={styles.center}><Text>Escrow not found</Text></View>;
+  if (loading) return <View style={styles.center}><Text style={styles.loadingText}>Loading...</Text></View>;
+  if (!escrow) return (
+    <View style={styles.center}>
+      <Ionicons name="shield-outline" size={48} color={colors.textLight} />
+      <Text style={styles.notFoundText}>Escrow not found</Text>
+    </View>
+  );
 
   const isBuyer = user.id === escrow.buyer_id;
   const isSeller = user.id === escrow.seller_id;
@@ -161,9 +180,17 @@ export default function EscrowDetailScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onScrollBeginDrag={Keyboard.dismiss}>
       {/* Status */}
-      <View style={[styles.statusBar, { backgroundColor: STATUS_COLORS[escrow.status] }]}>
-        <Text style={styles.statusText}>{STATUS_LABELS[escrow.status]}</Text>
-      </View>
+      {(() => {
+        const statusStyle = STATUS_STYLES[escrow.status] || STATUS_STYLES.cancelled;
+        return (
+          <View style={styles.statusBar}>
+            <View style={[styles.statusPill, { backgroundColor: statusStyle.bg }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusStyle.text }]} />
+              <Text style={[styles.statusText, { color: statusStyle.text }]}>{STATUS_LABELS[escrow.status]}</Text>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* Timeline Stepper */}
       <EscrowTimeline status={escrow.status} hasDeposit={Number(escrow.seller_deposit || 0) > 0} />
@@ -1021,43 +1048,68 @@ function DetailRow({ label, value }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: spacing.xl },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  loadingText: { color: colors.textSecondary },
+  notFoundText: { color: colors.textSecondary, marginTop: spacing.sm },
   statusBar: {
-    padding: spacing.md,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
   },
-  statusText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm - 1,
+    borderRadius: radius.pill,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.pill,
+    marginRight: spacing.sm,
+  },
+  statusText: { fontWeight: '700', fontSize: 14, letterSpacing: 0.2 },
   amountCard: {
     backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
     padding: spacing.lg,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    ...shadows.sm,
   },
-  amountLabel: { fontSize: 13, color: colors.textSecondary },
-  amount: { fontSize: 36, fontWeight: '800', color: colors.primary, marginVertical: spacing.xs },
+  amountLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
+  amount: { fontSize: 36, fontWeight: '800', color: colors.primary, marginVertical: spacing.xs, letterSpacing: -0.5 },
   feeBreakdown: { width: '100%', marginTop: spacing.sm },
   feeBreakdownRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
   feeText: { fontSize: 13, color: colors.textLight },
   section: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: spacing.md,
     marginTop: spacing.sm,
+    padding: spacing.md,
+    ...shadows.sm,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: spacing.sm, letterSpacing: -0.2 },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    borderBottomColor: colors.border,
   },
   detailLabel: { fontSize: 14, color: colors.textSecondary },
-  detailValue: { fontSize: 14, fontWeight: '500', color: colors.text, flex: 1, textAlign: 'right', marginLeft: spacing.md },
+  detailValue: { fontSize: 14, fontWeight: '600', color: colors.text, flex: 1, textAlign: 'right', marginLeft: spacing.md },
   actionGroup: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceAlt,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   actionHint: {
     fontSize: 14,
@@ -1073,7 +1125,7 @@ const styles = StyleSheet.create({
   },
   starIcon: {
     fontSize: 36,
-    color: colors.border,
+    color: colors.borderStrong,
   },
   starActive: {
     color: colors.star,
@@ -1086,15 +1138,15 @@ const styles = StyleSheet.create({
   payMethodTab: {
     flex: 1,
     padding: spacing.md,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     backgroundColor: colors.surface,
   },
   payMethodTabActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.actionSoft,
+    borderColor: colors.action,
   },
   payMethodTabText: {
     fontSize: 15,
@@ -1102,7 +1154,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   payMethodTabTextActive: {
-    color: '#fff',
+    color: colors.actionDark,
   },
   payMethodTabSub: {
     fontSize: 11,
@@ -1110,8 +1162,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   payTotalBox: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
     padding: spacing.md,
     alignItems: 'center',
     marginBottom: spacing.md,
@@ -1119,20 +1171,22 @@ const styles = StyleSheet.create({
   payTotalLabel: {
     fontSize: 12,
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   payTotalAmount: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.primary,
     marginVertical: 4,
+    letterSpacing: -0.3,
   },
   payTotalBreakdown: {
     fontSize: 11,
     color: colors.textLight,
   },
   payoutInfoBox: {
-    backgroundColor: '#e8f5e9',
-    borderRadius: 8,
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -1142,8 +1196,8 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   networkCard: {
-    backgroundColor: colors.background,
-    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1160,7 +1214,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: radius.sm,
     overflow: 'hidden',
     marginRight: spacing.sm,
   },
@@ -1171,7 +1225,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: radius.sm,
     overflow: 'hidden',
     marginRight: spacing.sm,
   },
@@ -1184,25 +1238,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
     padding: spacing.sm,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
   },
   walletAddress: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.text,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 10,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     fontFamily: 'monospace',
   },
   paymentInstructions: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.action,
     borderStyle: 'dashed',
   },
   paymentTitle: {
@@ -1210,6 +1266,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     marginBottom: spacing.xs,
+    letterSpacing: -0.2,
   },
   paymentAmount: {
     fontSize: 28,
@@ -1229,8 +1286,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   disputeNotes: {
-    backgroundColor: '#fff3e0',
-    borderRadius: 8,
+    backgroundColor: colors.warningSoft,
+    borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
   },
@@ -1247,7 +1304,7 @@ const styles = StyleSheet.create({
   },
   refPhotoSection: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -1262,8 +1319,8 @@ const styles = StyleSheet.create({
   refPhotoImage: {
     width: '100%',
     height: 160,
-    borderRadius: 8,
-    backgroundColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
   },
   photoLabel: {
     fontSize: 14,
@@ -1278,27 +1335,28 @@ const styles = StyleSheet.create({
   shippingPhotoPreview: {
     width: '100%',
     height: 200,
-    borderRadius: 10,
-    backgroundColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
   },
   photoChangeText: {
     fontSize: 12,
-    color: colors.textLight,
+    color: colors.action,
+    fontWeight: '600',
     textAlign: 'center',
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
   shippingPhotoRow: {
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    borderBottomColor: colors.border,
   },
   shippingPhotoThumb: {
     width: '100%',
     height: 160,
-    borderRadius: 8,
+    borderRadius: radius.md,
     marginTop: spacing.xs,
-    backgroundColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
   },
   completedText: {
     fontSize: 14,
@@ -1307,8 +1365,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   receiptCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.md,
     borderWidth: 1,
@@ -1320,6 +1378,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.md,
+    letterSpacing: -0.2,
   },
   receiptRow: {
     flexDirection: 'row',
@@ -1346,8 +1405,8 @@ const styles = StyleSheet.create({
   eventDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    backgroundColor: colors.action,
     marginTop: 6,
     marginRight: spacing.sm,
   },

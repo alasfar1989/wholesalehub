@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,10 +7,27 @@ import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import ListingCard from '../components/ListingCard';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 const HISTORY_KEY = 'search_history';
 const MAX_HISTORY = 8;
+
+const TYPE_OPTIONS = [
+  { key: '', label: 'All' },
+  { key: 'WTS', label: 'WTS' },
+  { key: 'WTB', label: 'WTB' },
+];
+const SORT_OPTIONS = [
+  { key: 'newest', label: 'Newest' },
+  { key: 'price_low', label: 'Price: Low' },
+  { key: 'price_high', label: 'Price: High' },
+];
+const CONDITION_OPTIONS = [
+  { key: '', label: 'Any' },
+  { key: 'new', label: 'New' },
+  { key: 'used', label: 'Used' },
+  { key: 'refurbished', label: 'Refurbished' },
+];
 
 export default function SearchScreen({ navigation }) {
   const [keyword, setKeyword] = useState('');
@@ -25,6 +42,9 @@ export default function SearchScreen({ navigation }) {
   const [searched, setSearched] = useState(false);
   const [sort, setSort] = useState('newest');
   const [history, setHistory] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const advancedCount = [city, category, condition, minPrice, maxPrice].filter(Boolean).length;
 
   useEffect(() => {
     loadHistory();
@@ -77,20 +97,22 @@ export default function SearchScreen({ navigation }) {
     }
   }
 
-  async function handleSearch() {
+  // Accepts overrides so chips can search with their new value without waiting for state.
+  async function runSearch(overrides = {}) {
+    const f = { keyword, type, city, category, condition, minPrice, maxPrice, sort, ...overrides };
     setLoading(true);
     setSearched(true);
-    if (keyword) saveToHistory(keyword);
+    if (f.keyword) saveToHistory(f.keyword);
     try {
       const params = {};
-      if (keyword) params.keyword = keyword;
-      if (type) params.type = type;
-      if (city) params.city = city;
-      if (category) params.category = category;
-      if (condition) params.condition = condition;
-      if (minPrice) params.min_price = minPrice;
-      if (maxPrice) params.max_price = maxPrice;
-      params.sort = sort;
+      if (f.keyword) params.keyword = f.keyword;
+      if (f.type) params.type = f.type;
+      if (f.city) params.city = f.city;
+      if (f.category) params.category = f.category;
+      if (f.condition) params.condition = f.condition;
+      if (f.minPrice) params.min_price = f.minPrice;
+      if (f.maxPrice) params.max_price = f.maxPrice;
+      params.sort = f.sort;
 
       const data = await api.searchListings(params);
       setResults(data.listings);
@@ -101,126 +123,126 @@ export default function SearchScreen({ navigation }) {
     }
   }
 
+  function resetFilters() {
+    setType(''); setCity(''); setCategory(''); setCondition('');
+    setMinPrice(''); setMaxPrice(''); setSort('newest');
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.filters}>
-        <Input
-          placeholder="Search products..."
-          value={keyword}
-          onChangeText={setKeyword}
-          style={{ marginBottom: spacing.sm }}
-        />
-
-        <View style={styles.row}>
-          <Input
-            placeholder="City"
-            value={city}
-            onChangeText={setCity}
-            style={{ flex: 1, marginRight: spacing.sm, marginBottom: spacing.sm }}
-          />
-          <Input
-            placeholder="Category"
-            value={category}
-            onChangeText={setCategory}
-            style={{ flex: 1, marginBottom: spacing.sm }}
-          />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.headerArea}>
+        {/* Search bar */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={18} color={colors.textLight} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products, brands…"
+              placeholderTextColor={colors.textLight}
+              value={keyword}
+              onChangeText={setKeyword}
+              returnKeyType="search"
+              onSubmitEditing={() => runSearch()}
+            />
+            {keyword.length > 0 && (
+              <TouchableOpacity onPress={() => setKeyword('')}>
+                <Ionicons name="close-circle" size={18} color={colors.textLight} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.filterBtn, (showFilters || advancedCount > 0) && styles.filterBtnActive]}
+            onPress={() => setShowFilters(v => !v)}
+          >
+            <Ionicons name="options-outline" size={20} color={showFilters || advancedCount > 0 ? '#fff' : colors.text} />
+            {advancedCount > 0 && (
+              <View style={styles.filterCountBadge}>
+                <Text style={styles.filterCountText}>{advancedCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.typeRow}>
-          {['', 'WTS', 'WTB'].map(t => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.typeBtn, type === t && styles.typeBtnActive]}
-              onPress={() => setType(t)}
-            >
-              <Text style={[styles.typeBtnText, type === t && styles.typeBtnTextActive]}>
-                {t || 'All'}
-              </Text>
-            </TouchableOpacity>
+        {/* Quick chip row */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+          keyboardShouldPersistTaps="handled"
+        >
+          {TYPE_OPTIONS.map(opt => (
+            <Chip
+              key={`t-${opt.key}`}
+              label={opt.label}
+              active={type === opt.key}
+              onPress={() => { setType(opt.key); runSearch({ type: opt.key }); }}
+            />
           ))}
-        </View>
-
-        <View style={styles.typeRow}>
-          {['', 'new', 'used', 'refurbished'].map(c => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.typeBtn, condition === c && styles.typeBtnActive]}
-              onPress={() => setCondition(c)}
-            >
-              <Text style={[styles.typeBtnText, condition === c && styles.typeBtnTextActive]}>
-                {c ? c.charAt(0).toUpperCase() + c.slice(1) : 'Any'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.chipDivider} />
+          {SORT_OPTIONS.map(opt => (
+            <Chip
+              key={`s-${opt.key}`}
+              label={opt.label}
+              icon={sort === opt.key ? 'swap-vertical' : null}
+              active={sort === opt.key}
+              onPress={() => { setSort(opt.key); runSearch({ sort: opt.key }); }}
+            />
           ))}
-        </View>
+        </ScrollView>
 
-        <View style={styles.typeRow}>
-          {[
-            { key: 'newest', label: 'Newest' },
-            { key: 'price_low', label: 'Price: Low' },
-            { key: 'price_high', label: 'Price: High' },
-          ].map(s => (
-            <TouchableOpacity
-              key={s.key}
-              style={[styles.typeBtn, sort === s.key && styles.typeBtnActive]}
-              onPress={() => setSort(s.key)}
-            >
-              <Text style={[styles.typeBtnText, sort === s.key && styles.typeBtnTextActive]}>
-                {s.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.row}>
-          <Input
-            placeholder="Min Price"
-            value={minPrice}
-            onChangeText={setMinPrice}
-            keyboardType="numeric"
-            style={{ flex: 1, marginRight: spacing.sm, marginBottom: spacing.sm }}
-          />
-          <Input
-            placeholder="Max Price"
-            value={maxPrice}
-            onChangeText={setMaxPrice}
-            keyboardType="numeric"
-            style={{ flex: 1, marginBottom: spacing.sm }}
-          />
-        </View>
-
-        <Button title="Search" onPress={handleSearch} loading={loading} />
-
+        {/* Save search / view saved */}
         <View style={styles.savedRow}>
           <TouchableOpacity onPress={handleSaveSearch} style={styles.savedAction}>
-            <Ionicons name="notifications-outline" size={16} color={colors.primary} />
+            <Ionicons name="notifications-outline" size={16} color={colors.action} />
             <Text style={styles.savedActionText}>Save Search</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('SavedSearches')} style={styles.savedAction}>
-            <Ionicons name="bookmark-outline" size={16} color={colors.primary} />
+            <Ionicons name="bookmark-outline" size={16} color={colors.action} />
             <Text style={styles.savedActionText}>Saved</Text>
           </TouchableOpacity>
         </View>
 
-        {!searched && history.length > 0 && (
-          <View style={styles.historySection}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>Recent Searches</Text>
-              <TouchableOpacity onPress={clearHistory}>
-                <Text style={styles.historyClear}>Clear</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.historyChips}>
-              {history.map((term, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.historyChip}
-                  onPress={() => { setKeyword(term); }}
-                >
-                  <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-                  <Text style={styles.historyChipText}>{term}</Text>
-                </TouchableOpacity>
+        {/* Advanced filters (collapsible) */}
+        {showFilters && (
+          <View style={styles.advancedPanel}>
+            <Text style={styles.advLabel}>Condition</Text>
+            <View style={styles.condRow}>
+              {CONDITION_OPTIONS.map(opt => (
+                <Chip
+                  key={`c-${opt.key}`}
+                  label={opt.label}
+                  active={condition === opt.key}
+                  onPress={() => setCondition(opt.key)}
+                  style={{ marginBottom: spacing.sm }}
+                />
               ))}
+            </View>
+
+            <View style={styles.row}>
+              <Input placeholder="City" value={city} onChangeText={setCity}
+                style={{ flex: 1, marginRight: spacing.sm }} />
+              <Input placeholder="Category" value={category} onChangeText={setCategory}
+                style={{ flex: 1 }} />
+            </View>
+            <View style={styles.row}>
+              <Input placeholder="Min Price" value={minPrice} onChangeText={setMinPrice}
+                keyboardType="numeric" style={{ flex: 1, marginRight: spacing.sm }} />
+              <Input placeholder="Max Price" value={maxPrice} onChangeText={setMaxPrice}
+                keyboardType="numeric" style={{ flex: 1 }} />
+            </View>
+
+            <View style={styles.advActions}>
+              <Button
+                title="Reset"
+                variant="outline"
+                onPress={resetFilters}
+                style={{ flex: 1, marginRight: spacing.sm }}
+              />
+              <Button
+                title="Apply Filters"
+                onPress={() => { setShowFilters(false); runSearch(); }}
+                style={{ flex: 2 }}
+              />
             </View>
           </View>
         )}
@@ -229,6 +251,7 @@ export default function SearchScreen({ navigation }) {
       <FlatList
         data={results}
         keyExtractor={item => item.id}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <ListingCard
             listing={item}
@@ -237,21 +260,67 @@ export default function SearchScreen({ navigation }) {
         )}
         ListHeaderComponent={
           searched && !loading ? (
-            <Text style={styles.resultCount}>{results.length} listing{results.length !== 1 ? 's' : ''} found</Text>
+            <Text style={styles.resultCount}>
+              {results.length} listing{results.length !== 1 ? 's' : ''} found
+            </Text>
           ) : null
         }
         ListEmptyComponent={
-          searched && !loading ? (
+          loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.empty}>Searching…</Text>
+            </View>
+          ) : searched ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={48} color={colors.textLight} />
               <Text style={styles.emptyTitle}>No Results</Text>
               <Text style={styles.empty}>Try different keywords or filters</Text>
             </View>
-          ) : null
+          ) : history.length > 0 ? (
+            <View style={styles.historySection}>
+              <View style={styles.historyHeader}>
+                <Text style={styles.historyTitle}>Recent Searches</Text>
+                <TouchableOpacity onPress={clearHistory}>
+                  <Text style={styles.historyClear}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.historyChips}>
+                {history.map((term, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.historyChip}
+                    onPress={() => { setKeyword(term); runSearch({ keyword: term }); }}
+                  >
+                    <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                    <Text style={styles.historyChipText}>{term}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="storefront-outline" size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>Find Wholesale Deals</Text>
+              <Text style={styles.empty}>Search or tap a filter to browse listings</Text>
+            </View>
+          )
         }
         contentContainerStyle={styles.list}
       />
     </SafeAreaView>
+  );
+}
+
+function Chip({ label, active, onPress, icon, style }) {
+  return (
+    <TouchableOpacity
+      style={[styles.chip, active && styles.chipActive, style]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {icon && <Ionicons name={icon} size={13} color="#fff" style={{ marginRight: 4 }} />}
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -260,48 +329,118 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  filters: {
-    padding: spacing.md,
+  headerArea: {
     backgroundColor: colors.surface,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    height: 44,
+    gap: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+  },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: colors.action,
+    borderColor: colors.action,
+  },
+  filterCountBadge: {
+    position: 'absolute',
+    top: -5, right: -5,
+    backgroundColor: colors.highlight,
+    minWidth: 18, height: 18,
+    borderRadius: 9,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2, borderColor: colors.surface,
+  },
+  filterCountText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  chipRow: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  chipDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.xs,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  chipActive: {
+    backgroundColor: colors.action,
+    borderColor: colors.action,
+  },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  chipTextActive: { color: '#fff' },
+  advancedPanel: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+  },
+  advLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  condRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   row: {
     flexDirection: 'row',
   },
-  typeRow: {
+  advActions: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  typeBtn: {
-    flex: 1,
-    padding: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  typeBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  typeBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  typeBtnTextActive: {
-    color: '#fff',
+    marginTop: spacing.xs,
   },
   list: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
+    flexGrow: 1,
   },
   resultCount: {
-    textAlign: 'center',
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   emptyContainer: {
@@ -339,6 +478,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   historySection: {
+    paddingHorizontal: spacing.md,
     marginTop: spacing.md,
   },
   historyHeader: {
@@ -349,12 +489,12 @@ const styles = StyleSheet.create({
   },
   historyTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
   },
   historyClear: {
     fontSize: 13,
-    color: colors.highlight,
+    color: colors.action,
     fontWeight: '600',
   },
   historyChips: {
@@ -365,14 +505,15 @@ const styles = StyleSheet.create({
   historyChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm + 4,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: 16,
-    gap: 4,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    gap: 5,
   },
   historyChipText: {
     fontSize: 13,
     color: colors.textSecondary,
+    fontWeight: '500',
   },
 });

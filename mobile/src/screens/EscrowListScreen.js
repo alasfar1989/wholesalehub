@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 const STATUS_LABELS = {
   pending_seller: 'Awaiting Seller',
@@ -22,19 +22,20 @@ const STATUS_LABELS = {
   cancelled: 'Cancelled',
 };
 
-const STATUS_COLORS = {
-  pending_seller: colors.warning,
-  pending_payment: colors.warning,
-  payment_received: colors.accent,
-  deposit_pending: colors.warning,
-  shipped: colors.wtb,
-  shipped_to_warehouse: colors.wtb,
-  at_warehouse: colors.warning,
-  delivered: colors.wts,
-  completed: colors.success,
-  disputed: colors.error,
-  inspection_failed: colors.error,
-  cancelled: colors.textLight,
+// Soft tinted pills (bg + text) for escrow state — mirrors the WTS/WTB badge style.
+const STATUS_STYLES = {
+  pending_seller: { bg: colors.warningSoft, text: colors.warning },
+  pending_payment: { bg: colors.warningSoft, text: colors.warning },
+  payment_received: { bg: colors.actionSoft, text: colors.actionDark },
+  deposit_pending: { bg: colors.warningSoft, text: colors.warning },
+  shipped: { bg: colors.wtbSoft, text: colors.wtbText },
+  shipped_to_warehouse: { bg: colors.wtbSoft, text: colors.wtbText },
+  at_warehouse: { bg: colors.warningSoft, text: colors.warning },
+  delivered: { bg: colors.wtsSoft, text: colors.wtsText },
+  completed: { bg: colors.successSoft, text: colors.success },
+  disputed: { bg: colors.errorSoft, text: colors.error },
+  inspection_failed: { bg: colors.errorSoft, text: colors.error },
+  cancelled: { bg: colors.surfaceAlt, text: colors.textSecondary },
 };
 
 export default function EscrowListScreen({ navigation }) {
@@ -65,9 +66,11 @@ export default function EscrowListScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <TouchableOpacity
         style={styles.newBtn}
+        activeOpacity={0.85}
         onPress={() => navigation.navigate('InitiateEscrow')}
       >
-        <Text style={styles.newBtnText}>+ New Escrow</Text>
+        <Ionicons name="add" size={20} color="#fff" />
+        <Text style={styles.newBtnText}>New Escrow</Text>
       </TouchableOpacity>
 
       <View style={styles.filterRow}>
@@ -95,23 +98,33 @@ export default function EscrowListScreen({ navigation }) {
         keyExtractor={item => item.id}
         renderItem={({ item }) => {
           const isBuyer = item.buyer_id === user.id;
+          const statusStyle = STATUS_STYLES[item.status] || STATUS_STYLES.cancelled;
           return (
             <TouchableOpacity
               style={styles.card}
+              activeOpacity={0.85}
               onPress={() => navigation.navigate('EscrowDetail', { id: item.id })}
             >
               <View style={styles.cardHeader}>
-                <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] }]}>
-                  <Text style={styles.statusText}>{STATUS_LABELS[item.status]}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                  <View style={[styles.statusDot, { backgroundColor: statusStyle.text }]} />
+                  <Text style={[styles.statusText, { color: statusStyle.text }]}>{STATUS_LABELS[item.status]}</Text>
                 </View>
-                <Text style={styles.role}>{isBuyer ? 'Buyer' : 'Seller'}</Text>
+                <View style={styles.roleBadge}>
+                  <Ionicons
+                    name={isBuyer ? 'cart-outline' : 'pricetag-outline'}
+                    size={12}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.role}>{isBuyer ? 'Buyer' : 'Seller'}</Text>
+                </View>
               </View>
 
               <Text style={styles.product} numberOfLines={1}>{item.product_description}</Text>
               <Text style={styles.amount}>${Number(item.amount).toLocaleString()}</Text>
 
               <View style={styles.cardFooter}>
-                <Text style={styles.party}>
+                <Text style={styles.party} numberOfLines={1}>
                   {isBuyer ? `Seller: ${item.seller_name}` : `Buyer: ${item.buyer_name}`}
                 </Text>
                 <Text style={styles.date}>{new Date(item.updated_at).toLocaleDateString()}</Text>
@@ -140,25 +153,29 @@ export default function EscrowListScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   newBtn: {
-    backgroundColor: colors.primary,
-    margin: spacing.md,
-    padding: spacing.md,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.action,
+    margin: spacing.md,
+    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    minHeight: 50,
+    ...shadows.sm,
   },
-  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 16, letterSpacing: 0.2 },
   list: { paddingBottom: spacing.xl },
   card: {
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     padding: spacing.md,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -167,23 +184,36 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
   },
-  statusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   role: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
-  product: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 4 },
-  amount: { fontSize: 20, fontWeight: '800', color: colors.primary, marginBottom: spacing.sm },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  party: { fontSize: 13, color: colors.textSecondary },
+  product: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 4, letterSpacing: -0.2 },
+  amount: { fontSize: 22, fontWeight: '800', color: colors.primary, marginBottom: spacing.sm, letterSpacing: -0.3 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  party: { fontSize: 13, color: colors.textSecondary, flex: 1, marginRight: spacing.sm },
   date: { fontSize: 12, color: colors.textLight },
   filterRow: { flexDirection: 'row', marginHorizontal: spacing.md, marginBottom: spacing.sm, gap: spacing.xs },
-  filterBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  filterBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center' },
   filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   filterText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   filterTextActive: { color: '#fff' },
   emptyContainer: { alignItems: 'center', marginTop: spacing.xl * 2, paddingHorizontal: spacing.lg },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs, letterSpacing: -0.2 },
   empty: { textAlign: 'center', color: colors.textSecondary, fontSize: 14 },
 });

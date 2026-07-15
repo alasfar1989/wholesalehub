@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius, shadows } from '../utils/theme';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -21,7 +21,11 @@ export default function ListingCard({ listing, onPress, showStats }) {
   const isWTS = listing.type === 'WTS';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.card, listing.is_featured && styles.cardFeatured]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
       {listing.thumbnail && (
         <Image
           source={{ uri: listing.thumbnail }}
@@ -42,12 +46,15 @@ export default function ListingCard({ listing, onPress, showStats }) {
         </View>
       )}
       <View style={styles.header}>
-        <View style={[styles.badge, { backgroundColor: isWTS ? colors.wts : colors.wtb }]}>
-          <Text style={styles.badgeText}>{listing.type}</Text>
+        <View style={[styles.badge, { backgroundColor: isWTS ? colors.wtsSoft : colors.wtbSoft }]}>
+          <View style={[styles.badgeDot, { backgroundColor: isWTS ? colors.wtsText : colors.wtbText }]} />
+          <Text style={[styles.badgeText, { color: isWTS ? colors.wtsText : colors.wtbText }]}>
+            {listing.type}
+          </Text>
         </View>
         {listing.is_featured && (
           <View style={styles.featuredBadge}>
-            <Text style={styles.featuredText}>Featured</Text>
+            <Text style={styles.featuredText}>★ Featured</Text>
           </View>
         )}
       </View>
@@ -105,22 +112,24 @@ export default function ListingCard({ listing, onPress, showStats }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
     marginHorizontal: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
+  },
+  cardFeatured: {
+    borderColor: colors.highlight,
+    backgroundColor: colors.highlightSoft,
   },
   thumbnail: {
     width: '100%',
-    height: 160,
-    borderRadius: 8,
+    height: 170,
+    borderRadius: radius.md,
     marginBottom: spacing.sm,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceAlt,
   },
   header: {
     flexDirection: 'row',
@@ -128,37 +137,48 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   badgeText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   featuredBadge: {
     marginLeft: spacing.sm,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
     backgroundColor: colors.highlight,
   },
   featuredText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   title: {
     fontSize: 16,
+    lineHeight: 21,
     fontWeight: '600',
     color: colors.text,
     marginBottom: spacing.xs,
   },
   price: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: colors.primary,
+    letterSpacing: -0.3,
     marginBottom: spacing.xs,
   },
   meta: {
@@ -170,10 +190,11 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     color: colors.textSecondary,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceAlt,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
   },
   soldMeta: {
     color: '#b26a00',

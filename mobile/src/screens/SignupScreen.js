@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TextInput, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius } from '../utils/theme';
 
 const CATEGORIES = ['electronics', 'phones', 'laptops', 'tablets', 'accessories', 'components', 'networking', 'other'];
 
@@ -102,7 +103,12 @@ export default function SignupScreen({ navigation }) {
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Join the B2B marketplace</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        ) : null}
 
         {step === 1 ? (
           <>
@@ -161,6 +167,7 @@ export default function SignupScreen({ navigation }) {
         ) : (
           <>
             <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.success} style={{ marginRight: spacing.xs }} />
               <Text style={styles.verifiedText}>Phone verified: {form.phone}</Text>
             </View>
 
@@ -259,6 +266,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
     marginBottom: spacing.xs,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14,
@@ -281,11 +289,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     minHeight: 36,
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    justifyContent: 'center',
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
   error: {
     color: colors.error,
     textAlign: 'center',
-    marginBottom: spacing.md,
     fontSize: 14,
+    fontWeight: '500',
   },
   otpHint: {
     fontSize: 14,
@@ -301,20 +320,22 @@ const styles = StyleSheet.create({
     letterSpacing: 12,
     color: colors.text,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   verifiedBadge: {
-    backgroundColor: '#e8f5e9',
-    borderRadius: 8,
+    flexDirection: 'row',
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   verifiedText: {
-    color: '#2e7d32',
+    color: colors.success,
     fontWeight: '600',
     fontSize: 14,
   },

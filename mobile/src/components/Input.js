@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { colors, spacing } from '../utils/theme';
+import { colors, spacing, radius } from '../utils/theme';
 
-export default function Input({ label, error, style, ...props }) {
+export default function Input({ label, error, style, onFocus, onBlur, ...props }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={[styles.container, style]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[styles.input, error && styles.inputError]}
+        style={[styles.input, focused && styles.inputFocused, error && styles.inputError]}
         placeholderTextColor={colors.textLight}
+        onFocus={(e) => { setFocused(true); onFocus && onFocus(e); }}
+        onBlur={(e) => { setFocused(false); onBlur && onBlur(e); }}
         {...props}
       />
       {error && <Text style={styles.error}>{error}</Text>}
@@ -28,12 +31,17 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 8,
-    padding: spacing.sm + 4,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.md,
     fontSize: 16,
     color: colors.text,
+  },
+  inputFocused: {
+    borderColor: colors.action,
+    backgroundColor: colors.actionSoft,
   },
   inputError: {
     borderColor: colors.error,
