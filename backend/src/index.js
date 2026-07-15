@@ -81,12 +81,45 @@ app.get('/listing/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).type('html').send(renderNotFound());
     }
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const proto = req.get('x-forwarded-proto') || req.protocol;
+    const baseUrl = `${proto}://${req.get('host')}`;
     res.type('html').send(renderListingPage(result.rows[0], baseUrl));
   } catch (err) {
     console.error('Listing page error:', err);
     res.status(500).type('html').send(renderNotFound());
   }
+});
+
+// Universal Links (iOS) — lets installed apps open https://<domain>/listing/* directly
+app.get('/.well-known/apple-app-site-association', (req, res) => {
+  res.type('application/json').json({
+    applinks: {
+      apps: [],
+      details: [
+        {
+          appID: '6ZGA3Q69H8.com.wholesalehub.app',
+          paths: ['/listing/*'],
+        },
+      ],
+    },
+  });
+});
+
+// App Links (Android) — requires the signing cert SHA-256 set in env (from `eas credentials`
+// or Play Console → App integrity). 404 until configured so Android won't half-verify.
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  const fp = process.env.ANDROID_SHA256_CERT_FINGERPRINT;
+  if (!fp) return res.status(404).json({ error: 'assetlinks not configured' });
+  res.type('application/json').json([
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.wholesalehubapp.app',
+        sha256_cert_fingerprints: fp.split(',').map((s) => s.trim()),
+      },
+    },
+  ]);
 });
 
 // Health check

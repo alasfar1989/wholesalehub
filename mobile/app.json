@@ -2,6 +2,7 @@
   "expo": {
     "name": "WholesaleHub",
     "slug": "wholesalehub",
+    "scheme": "wholesalehub",
     "version": "1.0.1",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -22,6 +23,9 @@
     ],
     "ios": {
       "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:wholesalehub-production-25ae.up.railway.app"
+      ],
       "bundleIdentifier": "com.wholesalehub.app",
       "buildNumber": "11",
       "infoPlist": {
@@ -38,7 +42,21 @@
       },
       "package": "com.wholesalehubapp.app",
       "versionCode": 5,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "wholesalehub-production-25ae.up.railway.app",
+              "pathPrefix": "/listing"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "extra": {
       "apiUrl": "https://wholesalehub-production-25ae.up.railway.app",
@@ -56,12 +74,6 @@
         }
       ]
     ],
-    "owner": "alasfar1",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/24a5ae11-8cca-47cd-99bf-a45f8d07f8cf"
-    }
+    "owner": "alasfar1"
   }
 }
